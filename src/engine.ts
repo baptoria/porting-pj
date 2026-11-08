@@ -6,6 +6,7 @@ import type {
 import type { Snapshot } from "./model";
 import { readZip } from "./archive";
 import type { MusicMount } from "./music";
+import { DosObservation } from './dos-observation';
 declare global {
   interface Window {
     emulators: Emulators;
@@ -57,6 +58,7 @@ export class DosEngine implements Engine {
   private snapshotError?: string;
   readonly metrics = { frames: 0, audioSamples: 0 };
   private startedAt = performance.now();
+  private observation=new DosObservation();
   musicMetrics?: {
     reads: number;
     bytes: number;
@@ -72,12 +74,15 @@ export class DosEngine implements Engine {
       audioState: this.audio?.state ?? "closed",
       paused: this.paused,
       music: this.musicMetrics,
+      execution: this.observation.report(),
+      resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
   }
   constructor(
     private canvas: HTMLCanvasElement,
     private log: (text: string) => void,
+    private stdout?: (text:string)=>void,
   ) {}
   // Call synchronously in the Play click, before IndexedDB/ZIP awaits.
   activateAudio() {
@@ -93,6 +98,7 @@ export class DosEngine implements Engine {
   }
   async start(bundle: Uint8Array, music: MusicMount[] = []) {
     this.startedAt = performance.now();
+    this.observation=new DosObservation();
     await loadEmulator();
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
@@ -103,6 +109,7 @@ export class DosEngine implements Engine {
     let handler: MessageHandler | undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      this.observation.observe(event.data.name,event.data.props);
       if (event.data.name === "ws-persist") {
         this.snapshotInfo = event.data.props.ed4Snapshot;
         this.snapshotError = event.data.props.ed4SnapshotError;
@@ -148,8 +155,11 @@ export class DosEngine implements Engine {
           ),
         30000,
       );
-      worker.onerror = (e) =>
-        reject(new Error(`DOS Worker 오류: ${e.message}`));
+      worker.onerror = (e) => {
+        const message=`DOS Worker 오류: ${e.message}`;
+        this.observation.error(message);this.log(message);
+        reject(new Error(message));
+      };
     });
     const ci = (this.ci = await Promise.race([
       window.emulators.backend([bundle], transport),
@@ -178,9 +188,9 @@ export class DosEngine implements Engine {
       context.putImageData(this.frame, 0, 0);
       this.metrics.frames++;
     });
-    ci.events().onStdout(this.log);
+    ci.events().onStdout(message=>{this.stdout?.(message);this.log(message);});
     ci.events().onMessage((type, ...args) => {
-      if (type !== "log") this.log(`${type}: ${args.join(" ")}`);
+      this.log(`${type}: ${args.join(" ")}`);
     });
     ci.events().onSoundPush((samples) => {
       this.metrics.audioSamples += samples.length;
@@ -301,6 +311,7 @@ export class DosEngine implements Engine {
       ]).finally(() => clearTimeout(timer));
     }
     this.worker?.terminate();
+    this.observation.stopped();
     this.worker = undefined;
     this.ci = undefined;
     await this.audio?.close();

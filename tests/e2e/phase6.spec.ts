@@ -24,6 +24,52 @@ async function json(page:Page,selector='#run-diagnostics'){
 }
 async function advanced(page:Page){await page.locator('#advanced-settings').evaluate(e=>(e as HTMLDetailsElement).open=true);}
 
+// Original CC0 DOS fixture: shrink COM allocation, issue INT 21h/4B00 for
+// CHILD.COM, then terminate. No actual ED4/driver binary is used on the PC.
+function childLauncher(){
+ const b:number[]=[],labels:Record<string,number>={},fix:{at:number;label:string;offset:number}[]=[];
+ const emit=(...x:number[])=>b.push(...x),word=(n:number)=>emit(n&255,n>>8&255);
+ const ptr=(label:string,offset=0)=>{fix.push({at:b.length,label,offset});word(0);};
+ emit(0x0e,0x1f,0x0e,0x07,0xbc,0xf0,0x0f,0xbb,0,1,0xb4,0x4a,0xcd,0x21,0x8c,0xc8);
+ for(const offset of [4,8,12]){emit(0xa3);ptr('params',offset);}
+ emit(0xba);ptr('name');emit(0xbb);ptr('params');emit(0xb8,0,0x4b,0xcd,0x21,0xb8,0,0x4c,0xcd,0x21);
+ labels.params=b.length;for(const w of [0,0x80,0,0x5c,0,0x6c,0])word(w);
+ labels.name=b.length;emit(...text('CHILD.COM'),0);
+ for(const f of fix){const p=0x100+labels[f.label]+f.offset;b[f.at]=p&255;b[f.at+1]=p>>8;}
+ return new Uint8Array(b);
+}
+
+test('NUL redirection keeps visible markers; native logs observe child EXEC outside BAT',async({page},info)=>{
+ await ready(page);const f=await fixture();
+ f['GAME.BAT']=text('@SOUNDRV.COM > NUL\r\nDRIVER.COM');
+ f['SOUNDRV.COM']=new Uint8Array([0xba,0x0c,0x01,0xb4,9,0xcd,0x21,0xb8,0,0x4c,0xcd,0x21,...text('SUPPRESSED OUTPUT\r\n$')]);
+ f['DRIVER.COM']=childLauncher();f['CHILD.COM']=f['ED4TEST.COM'];
+ await upload(page,f,'nul-trace.zip');await expect(page.locator('body')).not.toHaveClass(/busy/);const before=await db(page);
+ await advanced(page);await page.locator('#boot-open').click();await expect(page.locator('#boot-start')).toBeEnabled();await expect(page.locator('#boot-block-reason')).toContainText('실행 가능');
+ await page.locator('#boot-start').click();await expect(page.locator('#run-state')).toHaveText('실행 중');await expect(page.locator('#logs')).toContainText('ED4 TEST READY');
+ await expect(page.locator('#trace-status')).toContainText('CHILD.COM');
+ const report=await json(page),execution=report.engine.execution;
+ expect(report.bootTrace.events).toEqual(expect.arrayContaining([expect.objectContaining({id:1,phase:'BEFORE'}),expect.objectContaining({id:1,phase:'AFTER'})]));
+ expect(report.bootTrace.lastEntered.program).toBe('DRIVER.COM');expect(report.bootTrace.returned).toBe(false);
+ expect(execution.requests.map((e:any)=>e.program)).toEqual(expect.arrayContaining([expect.stringMatching(/DRIVER.COM$/),expect.stringMatching(/CHILD.COM$/)]));
+ expect(execution.latestRequest.program).toMatch(/CHILD.COM$/);expect(execution.latestRequest.mode).toBe(0);
+ // Pinned js-dos taps STDOUT before the NUL device write (dos_files.cpp).
+ // Thus its diagnostic stream retains the text although the DOS screen hides it.
+ expect(JSON.stringify(execution.recentStdout)).toContain('SUPPRESSED OUTPUT');expect(execution.sinceLatestRequest.stdout.length).toBeGreaterThan(0);
+ expect(report.bootTrace.events).toHaveLength(3);
+ await page.locator('#canvas').screenshot({path:info.outputPath('nul-dos-screen.png')});
+ await writeFile(info.outputPath('nested-exec.json'),JSON.stringify({bootTrace:report.bootTrace,execution},null,2));
+ await page.locator('#canvas').focus();await page.keyboard.press('q');await expect(page.locator('#trace-status')).toContainText('반환 확인');
+ await page.locator('#stop').click();await expect(page.locator('#run-state')).toHaveText('종료됨');expect(await db(page)).toBe(before);
+});
+
+test('disabled diagnostic button explains exact BAT line and rejected redirection',async({page})=>{
+ await ready(page);const f=await fixture();f['GAME.BAT']=text('@SOUNDRV.COM >> NUL');await upload(page,f,'blocked-trace.zip');
+ await advanced(page);await page.locator('#boot-open').click();await expect(page.locator('#boot-start')).toBeDisabled();
+ await expect(page.locator('#boot-block-reason')).toContainText('GAME.BAT:1');await expect(page.locator('#boot-block-reason')).toContainText('@SOUNDRV.COM >> NUL');
+ await expect(page.locator('#boot-block-reason')).toContainText('단일 > NUL');
+});
+
 test('temporary nested BAT trace identifies entered public program, captures screen and never changes original/save/profile',async({page},info)=>{
  await ready(page);await upload(page,await fixture());await page.locator('#play').click();await expect(page.locator('#run-state')).toHaveText('실행 중');
  await page.keyboard.press('s');await expect(page.locator('#logs')).toContainText('SAVE WRITTEN');await page.locator('#stop').click();await expect(page.locator('#run-state')).toHaveText('종료됨');await expect(page.locator('body')).not.toHaveClass(/busy/);const before=await db(page);

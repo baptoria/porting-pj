@@ -352,7 +352,7 @@ async function diagnostic() {
     }),
     logs: [...logs],
     appVersion: "0.5.0",
-    diagnosticRevision: 'phase6-1',
+    diagnosticRevision: 'phase6-2',
     runStage: $("#run-state").textContent,
     lastError,
     verification: "Galaxy DOSBox 및 GAME.BAT/사운드 초기화 메시지까지 사용자 확인. 이후 검은 화면. 실제 ED4 정상 진행은 미확인. 500MB ZIP 시간 초과, 동일 게임 폴더 등록 성공은 사용자 관측.",
@@ -408,14 +408,19 @@ function status(message: string, error = false) {
 }
 function log(message: string) {
   if(diagnosticRun && bootTrace){
-    bootTrace.accept(message);
-    const r=bootTrace.report();
-    $('#trace-status').textContent=r.lastEntered?`진단 ${r.lastEntered.id} · ${r.lastEntered.command} · ${r.returned?'반환 확인':'진입 확인 / 반환 미확인'}`:'진단 마커 대기';
+    renderBootStatus();
   }
   logs.push(message);
   if (logs.length > 120) logs.shift();
   $("#logs").textContent = logs.join("\n");
 }
+function renderBootStatus(){
+  if(!diagnosticRun||!bootTrace)return;
+  const r=bootTrace.report(),e=engine?.diagnostics().execution;
+  const bat=r.lastEntered?`진단 ${r.lastEntered.id} · ${r.lastEntered.command} · ${r.returned?'반환 확인':'진입 확인 / 반환 미확인'}`:'진단 마커 대기';
+  $('#trace-status').textContent=bat+(e?.latestRequest?` | DOS 실행 요청: ${e.latestRequest.program} (성공 미확정) · 이후 ${Math.floor((e.sinceLatestRequest?.elapsedMs??0)/1000)}초, 프레임 ${e.sinceLatestRequest?.framePackets??0}, 오디오 패킷 ${e.sinceLatestRequest?.audioPackets??0}`:' | DOS 실행 요청 로그 미수신')+(e?.workerError?' | '+e.workerError:'');
+}
+setInterval(renderBootStatus,1000);
 function current() {
   const p = profiles.find((p) => p.id === selected);
   if (!p) throw new Error("먼저 프로필을 선택하세요.");
@@ -705,7 +710,9 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
   $('#trace-status').textContent=diagnosticRun?'진단 마커 대기':'';
   logs.length = 0;
   $('#logs').textContent='엔진 시작 대기';
-  engine = new DosEngine($<HTMLCanvasElement>("#canvas"), log);
+  engine = new DosEngine($<HTMLCanvasElement>("#canvas"), log, text=>{
+    if(diagnosticRun){bootTrace?.accept(text);renderBootStatus();}
+  });
   engine.activateAudio();
   engine.setVolume(Number($<HTMLInputElement>("#volume").value) / 100);
   status("DOS 실행 환경을 준비하고 있습니다…");
@@ -1454,7 +1461,7 @@ $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="d
 <label>비교용 메모리<select id="boot-memory"><option>8</option><option>16</option><option>32</option><option>64</option></select></label>
 <label>비교용 Sound Blaster<select id="boot-sound"><option value="sb16">SB16</option><option value="sbpro2">SB Pro 2</option><option value="none">카드 비활성 (NOSOUND.BAT와 다름)</option></select></label>
 <p>기본값은 현재 프로필과 같습니다. sbbase=220 / IRQ=7 / DMA=1 / HDMA=5. 변경값은 이번 진단에만 적용됩니다.</p>
-<button id="boot-start">임시 진단 실행 (저장 안 함)</button></dialog>`);
+<p id="boot-block-reason" role="status"></p><button id="boot-start" aria-describedby="boot-block-reason">임시 진단 실행 (저장 안 함)</button></dialog>`);
 $('#run-diagnostics').onclick=()=>$('#export-diagnostics').click();
 $('#boot-close').onclick=()=>$<HTMLDialogElement>('#boot-dialog').close();
 let bootFiles:Files={};
@@ -1466,6 +1473,8 @@ function showBootAnalysis(){
     '\nCD 이미지 확장자 후보: '+(plan.evidence.cdImages.join(', ')||'없음')+'\n드라이브 참조: '+plan.evidence.driveCommands.map(s=>s.command).join(', ')+
     '\n한글 깨짐은 별도 문제입니다. LOADER.COM이나 CD가 필수라고 가정하지 않습니다.';
   $<HTMLButtonElement>('#boot-start').disabled=!!plan.issues.length;
+  $('#boot-block-reason').textContent=plan.issues.length?'임시 진단 실행 불가:\n'+plan.issues.join('\n'):'실행 가능: 직접 실행하는 EXE/COM의 단일 > NUL은 원문을 보존합니다. BAT 전체 리다이렉션·그 외 확장 문법은 허용하지 않습니다.';
+  $('#boot-start').title=plan.issues.join('\n');
 }
 $('#boot-entry').onchange=showBootAnalysis;
 on('#boot-open',async()=>{

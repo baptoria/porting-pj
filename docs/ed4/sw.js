@@ -1,6 +1,6 @@
 const PREFIX='ed4-shell-'+encodeURIComponent(new URL(self.registration.scope).pathname)+'-';
-const CACHE=PREFIX+'63908dfd4e1c346b';
-const URLS=["./.nojekyll","./assets/index-5olS-JCf.css","./assets/index-Dh9RElRs.js","./assets/runtime-worker-B_5UeRsF.js","./assets/source-worker-DiOa6fx6.js","./assets/zip-worker-BR8_C7kl.js","./dos-worker.js","./icon-192.png","./icon-512.png","./icon.svg","./index.html","./licenses/emulators-GPL-2.0.txt","./licenses/fflate-MIT.txt","./licenses/idb-ISC.txt","./licenses/NOTICE.html","./manifest.webmanifest","./test-program.zip","./vendor/emulators.js","./vendor/wdosbox.js","./vendor/wdosbox.wasm","./vendor/wlibzip.js","./vendor/wlibzip.wasm"];
+const CACHE=PREFIX+'e9a65845044c0e7b';
+const URLS=["./.nojekyll","./assets/index-5olS-JCf.css","./assets/index-ClG4aD0L.js","./assets/runtime-worker-B_5UeRsF.js","./assets/source-worker-DiOa6fx6.js","./assets/zip-worker-BR8_C7kl.js","./dos-worker.js","./icon-192.png","./icon-512.png","./icon.svg","./index.html","./licenses/emulators-GPL-2.0.txt","./licenses/fflate-MIT.txt","./licenses/idb-ISC.txt","./licenses/NOTICE.html","./manifest.webmanifest","./test-program.zip","./vendor/emulators.js","./vendor/wdosbox.js","./vendor/wdosbox.wasm","./vendor/wlibzip.js","./vendor/wlibzip.wasm"];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{const url=new URL(e.request.url);if(e.request.method!=='GET'||url.origin!==location.origin||!url.pathname.startsWith(new URL(self.registration.scope).pathname))return;

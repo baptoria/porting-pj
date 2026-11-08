@@ -1,5 +1,7 @@
 # Phase 6 실행 중단·ZIP 등록 진단 보고서
 
+후속 수정 `phase6-2`: 단일 EXE/COM `> NUL` 허용과 DOSBox 실행 요청 로그 보완은 PHASE6_NUL_FIX_REPORT.md에 기록했다. 아래는 최초 Phase 6 계측/추적 구현 당시의 검증 기록이다.
+
 2026-11-09. 기존 `ed4-mobile` 프로젝트, js-dos v7/emulators 0.73.8, `/porting-pj/ed4/` 경로를 유지했다. 앱 기반 버전은 0.5.0이며 진단 JSON에 `diagnosticRevision=phase6-1`, 화면에 PHASE 06을 표시한다.
 
 ## 사용자 실기 관측과 결론

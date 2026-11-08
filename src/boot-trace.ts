@@ -52,17 +52,24 @@ export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
       const line=original.trim().replace(/^@/,'');
       if(!line||/^(REM(?:\s|$)|::)/i.test(line)){out.push(original);continue;}
       if(transferred){issue(batch,index+1,'CALL 없는 BAT 연결 뒤 도달하지 않는 명령');continue;}
-      const [head,...args]=line.split(/\s+/),command=head.toUpperCase();
+      // Only a single, terminal stdout redirection to the DOS null device.
+      // Parse without it, but execute the ORIGINAL line, including @/spacing/case.
+      const nul=line.match(/^(.*?)([ \t]*>[ \t]*NUL[ \t]*)$/i);
+      const nullRedirect=!!nul && !/[<>]/.test(nul[1]) && !/(?:^|\s)\d+$/.test(nul[1].trim());
+      const analyzed=nullRedirect?nul![1].trimEnd():line;
+      const [head,...args]=analyzed.split(/\s+/),command=head.toUpperCase();
       const step:BootStep={id:plan.steps.length+1,batch,line:index+1,command:line,category:category(line),afterExpected:true};
       plan.steps.push(step);
       const marker=(phase:string)=>`@echo E4TRACE ${phase} ${step.id} END`;
       out.push(marker('BEFORE'));
       let actual=original;
+      if(nullRedirect && (/^(ECHO[.:]?|CLS|PAUSE|SET|CD|CHDIR|CALL)$/i.test(command)))
+        issue(batch,index+1,`> NUL은 직접 실행하는 EXE/COM에만 허용합니다. 원문: ${original}`);
       if(/^ECHO[.:]?$/.test(command)) {
         // Output only: retain original OEM bytes; never interpret Korean as paths.
         if(/[%!&|^]/.test(line))issue(batch,index+1,'변수/복합 ECHO는 자동 추적하지 않음');
-      }else if(/[%!&|<>^"\x80-\xff]/.test(line)||/^(IF|GOTO|FOR|SHIFT|EXIT|PATH|LH|LOADHIGH)$/.test(command)||command.startsWith(':')){
-        issue(batch,index+1,'분기·변수·PATH·확장 문법은 추적 변환하지 않음');
+      }else if(/[%!&|<>^"\x80-\xff]/.test(analyzed)||/^(IF|GOTO|FOR|SHIFT|EXIT|PATH|LH|LOADHIGH)$/.test(command)||command.startsWith(':')){
+        issue(batch,index+1,`${/[<>]/.test(analyzed)?'지원하지 않는 리다이렉션 (단일 > NUL만 허용)': '분기·변수·PATH·확장 문법은 추적 변환하지 않음'}. 원문: ${original}`);
       }else if(['CLS','PAUSE','SET'].includes(command)) {
         if(command==='SET' && !/^[A-Z_][A-Z0-9_]*=.+$/i.test(args.join(' ')))issue(batch,index+1,'SET 문법 확인 필요');
       }else if(['CD','CHDIR'].includes(command)){
@@ -78,6 +85,7 @@ export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
           if(windows.has(program))throw Error('PE/NE 프로그램');
           step.program=program;step.category=category(line,program);
           if(program.endsWith('.BAT')){
+            if(nullRedirect)throw Error('BAT 전체 > NUL은 내부 진단 마커를 숨기므로 추적 불가');
             if((call?args.slice(1):args).length)throw Error('BAT 인수는 자동 변환하지 않음');
             const child=walk(program,cwd,[...stack,batch]);cwd=child.cwd;
             actual=(call?'CALL ':'')+'C:\\'+child.temp.replace(/\//g,'\\');
