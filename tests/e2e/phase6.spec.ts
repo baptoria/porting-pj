@@ -26,7 +26,7 @@ async function advanced(page:Page){await page.locator('#advanced-settings').eval
 
 // Original CC0 DOS fixture: shrink COM allocation, issue INT 21h/4B00 for
 // CHILD.COM, then terminate. No actual ED4/driver binary is used on the PC.
-function childLauncher(){
+function childLauncher(childName='CHILD.COM'){
  const b:number[]=[],labels:Record<string,number>={},fix:{at:number;label:string;offset:number}[]=[];
  const emit=(...x:number[])=>b.push(...x),word=(n:number)=>emit(n&255,n>>8&255);
  const ptr=(label:string,offset=0)=>{fix.push({at:b.length,label,offset});word(0);};
@@ -34,10 +34,39 @@ function childLauncher(){
  for(const offset of [4,8,12]){emit(0xa3);ptr('params',offset);}
  emit(0xba);ptr('name');emit(0xbb);ptr('params');emit(0xb8,0,0x4b,0xcd,0x21,0xb8,0,0x4c,0xcd,0x21);
  labels.params=b.length;for(const w of [0,0x80,0,0x5c,0,0x6c,0])word(w);
- labels.name=b.length;emit(...text('CHILD.COM'),0);
+ labels.name=b.length;emit(...text(childName),0);
  for(const f of fix){const p=0x100+labels[f.label]+f.offset;b[f.at]=p&255;b[f.at+1]=p>>8;}
  return new Uint8Array(b);
 }
+
+for(const cleanup of ['@SOUNDRV.COM/U > NUL','@SOUNDRV.COM /U > NUL'])test(`Hotfix 2 five-line BAT preserves ${cleanup}, child logs and saves`,async({page},info)=>{
+ await ready(page);const f=await fixture();
+ f['GAME.BAT']=text(['@ECHO OFF','@SOUNDRV.COM > NUL','@DRIVER.EXE ED4.EXE',cleanup,'@ECHO ON'].join('\r\n'));
+ // EXE names with authored COM-format bytes: the pinned DOSBox loader supports
+ // non-MZ images. These are the public fixture, NEVER commercial game binaries.
+ f['DRIVER.EXE']=childLauncher('ED4.EXE');f['ED4.EXE']=f['ED4TEST.COM'];
+ // Print the exact PSP command tail through handle 1, then a newline and exit.
+ f['SOUNDRV.COM']=new Uint8Array([0x31,0xc9,0x8a,0x0e,0x80,0,0xba,0x81,0,0xbb,1,0,0xb4,0x40,0xcd,0x21,
+   0xba,0x1c,1,0xb4,9,0xcd,0x21,0xb8,0,0x4c,0xcd,0x21,...text('\r\nSOUND RETURN\r\n$')]);
+ f['ED4-01.RAW']=new Uint8Array(12);f['ED4-01.RAW'].set(text('RAWTEST1'));
+ await upload(page,f,'hotfix2.zip');await page.locator('#play').click();await expect(page.locator('#run-state')).toHaveText('실행 중');
+ await page.keyboard.press('s');await expect(page.locator('#logs')).toContainText('SAVE WRITTEN');await page.locator('#stop').click();await expect(page.locator('body')).not.toHaveClass(/busy/);
+ const before=await db(page);await advanced(page);await page.locator('#boot-open').click();await expect(page.locator('#boot-start')).toBeEnabled();
+ await expect(page.locator('#boot-analysis')).toContainText('GAME.BAT:4');await page.locator('#boot-start').click();await expect(page.locator('#run-state')).toHaveText('실행 중');
+ await expect(page.locator('#logs')).toContainText('ED4 TEST READY');const waiting=await json(page);
+ expect(waiting.bootTrace.steps).toHaveLength(5);expect(waiting.bootTrace.lastEntered.program).toBe('DRIVER.EXE');expect(waiting.bootTrace.returned).toBe(false);
+ expect(waiting.bootTrace.events.some((e:any)=>e.id===4)).toBe(false);expect(waiting.bootTrace.steps[2].arguments).toEqual(['ED4.EXE']);
+ expect(waiting.engine.execution.latestRequest.program).toMatch(/ED4.EXE$/);expect(waiting.engine.execution.latestRequest.mode).toBe(0);
+ await page.locator('#canvas').focus();await page.keyboard.press('d');await expect(page.locator('#logs')).toContainText('SAVE DELETED');
+ await page.keyboard.press('m');await expect(page.locator('#logs')).toContainText('RAWTEST1 RAW READ AND SEEK OK');
+ await page.keyboard.press('q');await expect(page.locator('#trace-status')).toContainText('진단 5');await expect(page.locator('#trace-status')).toContainText('반환 확인');
+ const ended=await json(page);expect(ended.bootTrace.events).toHaveLength(10);expect(ended.bootTrace.steps[3]).toMatchObject({program:'SOUNDRV.COM',arguments:['/U'],redirection:'> NUL'});
+ expect(ended.engine.execution.requests.filter((e:any)=>/SOUNDRV.COM$/.test(e.program))).toHaveLength(2);
+ expect(ended.engine.execution.recentStdout.map((e:any)=>e.message).join('')).toContain('/U');
+ await writeFile(info.outputPath('hotfix2-trace.json'),JSON.stringify({waiting,ended},null,2));
+ await page.locator('#stop').click();await expect(page.locator('body')).not.toHaveClass(/busy/);expect(await db(page)).toBe(before);
+ await page.locator('#play').click();await expect(page.locator('#run-state')).toHaveText('실행 중');await page.keyboard.press('l');await expect(page.locator('#logs')).toContainText('ED4_SAVE_OK');await page.locator('#stop').click();
+});
 
 test('NUL redirection keeps visible markers; native logs observe child EXEC outside BAT',async({page},info)=>{
  await ready(page);const f=await fixture();

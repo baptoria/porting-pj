@@ -352,7 +352,7 @@ async function diagnostic() {
     }),
     logs: [...logs],
     appVersion: "0.5.0",
-    diagnosticRevision: 'phase6-2',
+    diagnosticRevision: 'phase6-hotfix2',
     runStage: $("#run-state").textContent,
     lastError,
     verification: "Galaxy DOSBox 및 GAME.BAT/사운드 초기화 메시지까지 사용자 확인. 이후 검은 화면. 실제 ED4 정상 진행은 미확인. 500MB ZIP 시간 초과, 동일 게임 폴더 등록 성공은 사용자 관측.",

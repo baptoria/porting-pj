@@ -34,7 +34,7 @@ export function installSimpleImport(options: {
   const find = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const dialog = find<HTMLDialogElement>('simple-import-dialog');
   find('import-diagnostics').onclick=()=>{
-    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'ed4-import-diagnostics',appVersion:'0.5.0',diagnosticRevision:'phase6-2',userAgent:navigator.userAgent,trace:importTrace()},null,2)],{type:'application/json'}));
+    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'ed4-import-diagnostics',appVersion:'0.5.0',diagnosticRevision:'phase6-hotfix2',userAgent:navigator.userAgent,trace:importTrace()},null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='ed4-import-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   let controller: AbortController | undefined, draft: Registration | undefined, processing = false;

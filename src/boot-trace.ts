@@ -4,6 +4,7 @@ import type { Files } from './model';
 
 export interface BootStep {
   id: number; batch: string; line: number; command: string; program?: string;
+  arguments?: string[]; redirection?: '> NUL';
   category: 'sound'|'game'|'korean-candidate'|'cd-drive'|'batch'|'initialization';
   afterExpected: boolean;
 }
@@ -12,6 +13,29 @@ export interface BootPlan {
   generated: Files; evidence: { koreanCandidates:string[]; cdImages:string[]; driveCommands:BootStep[] };
 }
 const dir=(p:string)=>p.includes('/')?p.slice(0,p.lastIndexOf('/')):'';
+/** The pinned DOS shell ends its command token at the FIRST slash.
+ * Only explicit EXE/COM + one simple ASCII switch is supported here. DOS
+ * directory separators remain backslashes; never reinterpret a slash path as
+ * a different executable or normalize the original command used at runtime.
+ */
+function executableInvocation(target:string,args:string[],call:boolean) {
+  const slash=target.indexOf('/');
+  let executable=target;
+  const parameters=[...args];
+  if(slash>=0){
+    const prefix=target.slice(0,slash),suffix=target.slice(slash);
+    if(call || !/\.(?:COM|EXE)$/i.test(prefix))
+      throw Error('붙은 스위치는 직접 실행하는 .COM/.EXE 뒤에만 허용합니다. DOS 실행 경로의 디렉터리 구분자는 역슬래시여야 합니다: '+target);
+    if(!/^\/[A-Za-z][A-Za-z0-9]*$/.test(suffix))
+      throw Error('지원하지 않는 붙은 스위치 (예: /U, /UNLOAD). 경로·복합 인수로 추정하지 않습니다: '+target);
+    executable=prefix;parameters.unshift(suffix);
+  }
+  for(const arg of parameters){
+    if((arg.startsWith('/')&&!/^\/[A-Za-z][A-Za-z0-9]*$/.test(arg)) || /[\x00-\x1f\x7f]/.test(arg))
+      throw Error('지원하지 않는 인수: '+arg);
+  }
+  return {executable,arguments:parameters};
+}
 function resolve(cwd:string,value:string) {
   let p=value.replace(/\\/g,'/').toUpperCase();
   if(/^[A-Z]:/.test(p)){if(!p.startsWith('C:/'))throw Error('C: 이외 드라이브 또는 드라이브 상대 경로');p=p.slice(2);}
@@ -59,6 +83,7 @@ export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
       const analyzed=nullRedirect?nul![1].trimEnd():line;
       const [head,...args]=analyzed.split(/\s+/),command=head.toUpperCase();
       const step:BootStep={id:plan.steps.length+1,batch,line:index+1,command:line,category:category(line),afterExpected:true};
+      if(nullRedirect)step.redirection='> NUL';
       plan.steps.push(step);
       const marker=(phase:string)=>`@echo E4TRACE ${phase} ${step.id} END`;
       out.push(marker('BEFORE'));
@@ -79,7 +104,9 @@ export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
         const call=command==='CALL',target=call?args[0]:head;
         try{
           if(!target)throw Error('명령 누락');
-          const name=resolve(cwd,target),matches=(/\.(COM|EXE|BAT)$/i.test(name)?[name]:[name+'.COM',name+'.EXE',name+'.BAT']).filter(p=>files[p]);
+          const invocation=executableInvocation(target,call?args.slice(1):args,call);
+          step.arguments=invocation.arguments;
+          const name=resolve(cwd,invocation.executable),matches=(/\.(COM|EXE|BAT)$/i.test(name)?[name]:[name+'.COM',name+'.EXE',name+'.BAT']).filter(p=>files[p]);
           if(matches.length!==1)throw Error('실행 파일 누락/중복 또는 지원하지 않는 내부 명령: '+target);
           const program=matches[0];validateExecutable(program,files);
           if(windows.has(program))throw Error('PE/NE 프로그램');

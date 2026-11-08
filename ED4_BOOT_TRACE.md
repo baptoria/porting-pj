@@ -1,6 +1,8 @@
 # ED4 부팅 실행 추적
 
-2026-11-09 / Phase 6 진단 확장 (`appVersion=0.5.0`, `diagnosticRevision=phase6-2`).
+2026-11-09 / Phase 6 Hotfix 2 (`appVersion=0.5.0`, `diagnosticRevision=phase6-hotfix2`).
+
+Hotfix 2: `SOUNDRV.COM/U > NUL`과 `SOUNDRV.COM /U > NUL`을 모두 분석한다. 직접 실행하는 EXE/COM의 단순 `/옵션`만 분리하며 실제 명령 바이트·공백·리다이렉션은 그대로 실행한다. JSON 단계 정보에는 `program`, `arguments`, `redirection`이 들어간다. DOS 디렉터리 구분자는 역슬래시이며 `/` 경로를 임의로 보정하지 않는다. 전체 5행 재현과 Galaxy 확인 방법은 PHASE6_HOTFIX2_REPORT.md를 참고한다.
 
 추가 수정: 직접 실행하는 EXE/COM의 단일 `> NUL`을 원문 그대로 허용한다. 비활성화 사유를 파일/행/명령별로 표시하며, 기존 DOSBox `LOG_EXEC Execute` 로그로 BAT 밖의 실행 요청을 기록한다. 상세 근거·제한과 Galaxy 절차는 PHASE6_NUL_FIX_REPORT.md를 따른다. 이 로그는 로딩 전의 요청이며 성공 판정이 아니다.
 
