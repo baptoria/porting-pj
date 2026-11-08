@@ -1,0 +1,28 @@
+{
+  "emulatorsVersion": "0.73.8",
+  "commit": "aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5",
+  "sokolCommit": "9acfe8cf7b3597bfad39847a0daa564dad91b8ae",
+  "archive": "emulators-0.73.8-source.zip",
+  "sha256": "884e7b8e525392fe0f64e4872ee8e2e82ba58e8a320e078297b90938279b6840",
+  "bytes": 2674342,
+  "excluded": [
+    "emulators/native/dosbox-jsdos/dhry2/bin/DOS4GW.EXE",
+    "emulators/native/dosbox-jsdos/dhry2/bin/dhry_2.exe",
+    "emulators/native/dosbox-jsdos/dhry2/dhry_2_exe.h",
+    "emulators/native/dosbox-jsdos/dhry2/dos4gw_exe.h",
+    "emulators/test/arkanoid.zip",
+    "emulators/test/dhry2.jsdos",
+    "emulators/test/digger-end.png",
+    "emulators/test/digger.jsdos",
+    "emulators/test/digger.png",
+    "emulators/test/digger.zip",
+    "emulators/test/dosboxconf.png",
+    "emulators/test/elonmusk.png",
+    "emulators/test/init.png",
+    "emulators/test/jsdos-conf.png",
+    "emulators/test/mousetst.jsdos",
+    "emulators/test/mousetst.png",
+    "emulators/test/persistent-mount-second.png",
+    "emulators/test/persistent-mount.png"
+  ]
+}

@@ -1,0 +1,310 @@
+import type { CommandInterface, Emulators } from "emulators";
+import type {
+  MessageHandler,
+  TransportLayer,
+} from "emulators/dist/types/protocol/protocol";
+import type { Snapshot } from "./model";
+import { readZip } from "./archive";
+import type { MusicMount } from "./music";
+declare global {
+  interface Window {
+    emulators: Emulators;
+  }
+}
+export interface Engine {
+  start(bundle: Uint8Array): Promise<void>;
+  save(): Promise<Snapshot>;
+  stop(): Promise<void>;
+  key(code: number, pressed: boolean): void;
+  pause(value: boolean): void;
+}
+let loaded: Promise<void> | undefined;
+function loadEmulator() {
+  return (loaded ??= new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `${import.meta.env.BASE_URL}vendor/emulators.js`;
+    script.onload = () => {
+      window.emulators.pathPrefix = `${import.meta.env.BASE_URL}vendor/`;
+      resolve();
+    };
+    script.onerror = () => {
+      loaded = undefined;
+      script.remove();
+      reject(
+        new Error(
+          "에뮬레이터 파일을 불러오지 못했습니다. 온라인에서 오프라인 준비를 완료하세요.",
+        ),
+      );
+    };
+    document.head.append(script);
+  }));
+}
+export class DosEngine implements Engine {
+  private ci?: CommandInterface;
+  private audio?: AudioContext;
+  private gain?: GainNode;
+  private nextAudio = 0;
+  private pressed = new Set<number>();
+  private frame?: ImageData;
+  private paused = false;
+  private worker?: Worker;
+  private snapshotInfo?: {
+    paths: string[];
+    bytes: number;
+    elapsedMs: number;
+    wasmHeapBytes: number;
+  };
+  private snapshotError?: string;
+  readonly metrics = { frames: 0, audioSamples: 0 };
+  private startedAt = performance.now();
+  musicMetrics?: {
+    reads: number;
+    bytes: number;
+    largestRead: number;
+    mounted: number;
+  };
+  diagnostics() {
+    return {
+      ...this.metrics,
+      averageFps:
+        this.metrics.frames /
+        Math.max(1, (performance.now() - this.startedAt) / 1000),
+      audioState: this.audio?.state ?? "closed",
+      paused: this.paused,
+      music: this.musicMetrics,
+      note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
+    };
+  }
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private log: (text: string) => void,
+  ) {}
+  // Call synchronously in the Play click, before IndexedDB/ZIP awaits.
+  activateAudio() {
+    this.audio ??= new AudioContext();
+    this.gain ??= this.audio.createGain();
+    this.gain.connect(this.audio.destination);
+    void this.audio
+      .resume()
+      .catch(() => this.log("소리 켜기 버튼을 눌러 오디오를 활성화하세요."));
+  }
+  setVolume(volume: number) {
+    if (this.gain) this.gain.gain.value = volume;
+  }
+  async start(bundle: Uint8Array, music: MusicMount[] = []) {
+    this.startedAt = performance.now();
+    await loadEmulator();
+    // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
+    // for BIOS input; an already-checkpointed session must still be stoppable.
+    const worker = (this.worker = new Worker(
+      `${import.meta.env.BASE_URL}dos-worker.js`,
+    ));
+    const sessionId = crypto.randomUUID();
+    let handler: MessageHandler | undefined;
+    const queue: MessageEvent[] = [];
+    worker.onmessage = (event) => {
+      if (event.data.name === "ws-persist") {
+        this.snapshotInfo = event.data.props.ed4Snapshot;
+        this.snapshotError = event.data.props.ed4SnapshotError;
+        this.musicMetrics = event.data.props.ed4Snapshot?.music;
+      }
+      if (handler) handler(event.data.name, event.data.props);
+      else queue.push(event);
+    };
+    const transport: TransportLayer = {
+      sessionId,
+      sendMessageToServer: (name, props) => {
+        // Bundles come from a disposable IDB read; transfer instead of cloning.
+        const transfers =
+          name === "wc-run"
+            ? (props?.bundles as Uint8Array[] | undefined)?.map(
+                (b) => b.buffer as ArrayBuffer,
+              )
+            : undefined;
+        worker.postMessage(
+          { name, props },
+          transfers ? [...new Set(transfers)] : [],
+        );
+      },
+      initMessageHandler: (next) => {
+        handler = next;
+        for (const event of queue) next(event.data.name, event.data.props);
+        queue.length = 0;
+      },
+      exit: () => worker.terminate(),
+    };
+    worker.postMessage({
+      name: "wc-install",
+      props: { sessionId, ed4Music: music },
+    });
+    let startupTimer: ReturnType<typeof setTimeout> | undefined;
+    const failed = new Promise<never>((_, reject) => {
+      startupTimer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              "DOS 시작 시간이 초과되었습니다. ZIP 구성과 브라우저 메모리를 확인하세요.",
+            ),
+          ),
+        30000,
+      );
+      worker.onerror = (e) =>
+        reject(new Error(`DOS Worker 오류: ${e.message}`));
+    });
+    const ci = (this.ci = await Promise.race([
+      window.emulators.backend([bundle], transport),
+      failed,
+    ]).finally(() => clearTimeout(startupTimer)));
+    const context = this.canvas.getContext("2d", { alpha: false })!;
+    const resize = (w: number, h: number) => {
+      if (w < 1 || h < 1) return;
+      this.canvas.width = w;
+      this.canvas.height = h;
+      this.frame = context.createImageData(w, h);
+    };
+    resize(ci.width(), ci.height());
+    ci.events().onFrameSize(resize);
+    ci.events().onFrame((rgb, rgba) => {
+      if (!this.frame) return;
+      const dst = this.frame.data;
+      if (rgba) dst.set(rgba);
+      else if (rgb)
+        for (let i = 0, j = 0; i < rgb.length; i += 3, j += 4) {
+          dst[j] = rgb[i];
+          dst[j + 1] = rgb[i + 1];
+          dst[j + 2] = rgb[i + 2];
+          dst[j + 3] = 255;
+        }
+      context.putImageData(this.frame, 0, 0);
+      this.metrics.frames++;
+    });
+    ci.events().onStdout(this.log);
+    ci.events().onMessage((type, ...args) => {
+      if (type !== "log") this.log(`${type}: ${args.join(" ")}`);
+    });
+    ci.events().onSoundPush((samples) => {
+      this.metrics.audioSamples += samples.length;
+      if (samples.some((value) => Math.abs(value) > 0.001))
+        this.canvas.dataset.audioSignal = "true";
+      this.canvas.dataset.audioState = this.audio?.state ?? "closed";
+      const audio = this.audio;
+      if (
+        !audio ||
+        audio.state !== "running" ||
+        this.paused ||
+        samples.length < 2
+      )
+        return;
+      const buffer = audio.createBuffer(
+        2,
+        samples.length / 2,
+        ci.soundFrequency(),
+      );
+      for (let c = 0; c < 2; c++) {
+        const data = buffer.getChannelData(c);
+        for (let i = 0; i < data.length; i++) data[i] = samples[i * 2 + c];
+      }
+      const source = audio.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.gain!);
+      if (
+        this.nextAudio < audio.currentTime ||
+        this.nextAudio > audio.currentTime + 0.25
+      )
+        this.nextAudio = audio.currentTime + 0.025;
+      source.start(this.nextAudio);
+      this.nextAudio += buffer.duration;
+    });
+    // The first text frame can precede onFrame registration.
+    const initial = await ci.screenshot();
+    context.putImageData(initial, 0, 0);
+    this.log("DOS 엔진 연결 완료");
+  }
+  key(code: number, pressed: boolean) {
+    if (!this.ci || this.paused) return;
+    if (pressed) this.pressed.add(code);
+    else this.pressed.delete(code);
+    this.ci.sendKeyEvent(code, pressed);
+  }
+  releaseKeys() {
+    for (const code of this.pressed) this.ci?.sendKeyEvent(code, false);
+    this.pressed.clear();
+  }
+  pause(value: boolean) {
+    this.releaseKeys();
+    this.paused = value;
+    if (value) {
+      this.ci?.pause();
+      void this.audio?.suspend();
+    } else {
+      this.ci?.resume();
+      void this.audio?.resume();
+    }
+    this.nextAudio = 0;
+  }
+  async save(): Promise<Snapshot> {
+    if (!this.ci) throw new Error("실행 중인 DOS 세션이 없습니다.");
+    this.snapshotInfo = undefined;
+    this.snapshotError = undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const zip = await Promise.race([
+      this.ci.persist(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error("DOS 저장 응답 시간 초과. 기존 저장을 유지합니다."),
+            ),
+          15000,
+        );
+      }),
+    ]).finally(() => clearTimeout(timer));
+    const info = this.snapshotInfo as
+      | {
+          paths: string[];
+          bytes: number;
+          elapsedMs: number;
+          wasmHeapBytes: number;
+        }
+      | undefined;
+    if (this.snapshotError || !info)
+      throw new Error(
+        `DOS 파일 목록을 확인할 수 없어 저장을 중단했습니다: ${this.snapshotError ?? "목록 누락"}`,
+      );
+    const files = zip.length <= 22 ? {} : readZip(zip, true);
+    for (const path of Object.keys(files))
+      if (path.startsWith(".JSDOS/")) delete files[path];
+    return {
+      files,
+      presentPaths: info.paths,
+      measurement: {
+        stage: "DOS snapshot",
+        elapsedMs: info.elapsedMs,
+        logicalBytes: info.bytes,
+        wasmHeapBytes: info.wasmHeapBytes,
+        note: "실측: 파일 목록의 바이트 합과 WASM 선형 메모리. 브라우저 전체 RSS가 아님.",
+      },
+    };
+  }
+  async stop() {
+    this.releaseKeys();
+    if (this.ci) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        this.ci.exit(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(() => {
+            this.log("종료 응답 지연: 저장 완료된 DOS Worker를 정리했습니다.");
+            resolve();
+          }, 1200);
+        }),
+      ]).finally(() => clearTimeout(timer));
+    }
+    this.worker?.terminate();
+    this.worker = undefined;
+    this.ci = undefined;
+    await this.audio?.close();
+    this.audio = undefined;
+    this.gain = undefined;
+  }
+}
