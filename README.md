@@ -1,6 +1,6 @@
 # ED4 Mobile — Phase 3
 
-현재 체크아웃은 GitHub Desktop + Pages `main /docs` 배포용입니다. [GITHUB_DESKTOP_GUIDE.md](GITHUB_DESKTOP_GUIDE.md)와 [DEPLOY_CHECK_REPORT.md](DEPLOY_CHECK_REPORT.md)를 따르세요. `/ed4-mobile/` base로 `docs/`를 생성하며 RAW 샘플은 배포하지 않습니다. 기존 소스·배포본은 보존했고 GitHub 업로드는 수행하지 않았습니다.
+경로 이전 결과는 [PATH_MIGRATION_REPORT.md](PATH_MIGRATION_REPORT.md)를 참고하세요. 현재 체크아웃은 저장소 `porting-pj`의 GitHub Desktop + Pages `main /docs` 배포용입니다. [GITHUB_DESKTOP_GUIDE.md](GITHUB_DESKTOP_GUIDE.md)와 [DEPLOY_CHECK_REPORT.md](DEPLOY_CHECK_REPORT.md)를 따르세요. `/porting-pj/ed4/` base로 `docs/ed4/`를 생성하며 RAW 샘플은 배포하지 않습니다. 기존 소스·배포본은 보존했고 GitHub 업로드는 수행하지 않았습니다.
 
 사용자가 보유한 구영웅전설4 DOS ZIP을 브라우저에 등록하는 독립 웹 실행기입니다. 한국어 UI, js-dos v7 계열 DOS 엔진, 프로필/모드별 저장 분리, PWA 오프라인 실행을 구현했습니다.
 
@@ -23,7 +23,7 @@ cd D:\porting\ed4-mobile
 npm.cmd run preview
 ```
 
-브라우저에서 <http://localhost:4173/ed4-mobile/> 접속. HTML 파일을 더블클릭하는 `file://` 방식은 지원하지 않습니다.
+브라우저에서 <http://localhost:4173/porting-pj/ed4/> 접속. HTML 파일을 더블클릭하는 `file://` 방식은 지원하지 않습니다.
 
 새로 설치하거나 소스를 변경한 경우:
 
@@ -33,7 +33,7 @@ npm.cmd run build
 npm.cmd run preview
 ```
 
-개발 서버: `npm.cmd run dev` → <http://localhost:5173/ed4-mobile/>. 개발 서버에서는 서비스 워커를 등록하지 않습니다. PWA/오프라인 검사는 반드시 `build` + `preview`에서 수행하세요. 두 주소의 포트가 다르므로 데이터 저장소도 서로 다릅니다.
+개발 서버: `npm.cmd run dev` → <http://localhost:5173/porting-pj/ed4/>. 개발 서버에서는 서비스 워커를 등록하지 않습니다. PWA/오프라인 검사는 반드시 `build` + `preview`에서 수행하세요. 두 주소의 포트가 다르므로 데이터 저장소도 서로 다릅니다.
 
 ## 원본 없이 테스트하기
 

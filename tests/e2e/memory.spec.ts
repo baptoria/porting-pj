@@ -6,7 +6,7 @@ test("measure ZIP stages with 8 and 32 MiB synthetic payloads", async ({
 }, info) => {
   test.setTimeout(120000);
   page.on("dialog", (d) => void d.accept());
-  await page.goto("/ed4-mobile/");
+  await page.goto("/porting-pj/ed4/");
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   const program = unzipSync(
       new Uint8Array(await readFile("public/test-program.zip")),

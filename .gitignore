@@ -73,6 +73,6 @@ Desktop.ini
 
 # Reviewed GPL corresponding source and public CC0 DOS test; no other ZIPs
 !public/sources/emulators-0.73.8-source.zip
-!docs/sources/emulators-0.73.8-source.zip
-!docs/sources/ed4-mobile-source.zip
-!docs/test-program.zip
+!docs/ed4/sources/emulators-0.73.8-source.zip
+!docs/ed4/sources/ed4-mobile-source.zip
+!docs/ed4/test-program.zip

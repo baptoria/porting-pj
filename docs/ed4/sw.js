@@ -1,0 +1,7 @@
+const PREFIX='ed4-shell-'+encodeURIComponent(new URL(self.registration.scope).pathname)+'-';
+const CACHE=PREFIX+'3a63afc56d0d1284';
+const URLS=["./.nojekyll","./assets/index-BMAJuMs_.js","./assets/index-DTpopoQO.css","./assets/runtime-worker-CMTqhJk9.js","./assets/source-worker-NvSCXbwa.js","./assets/zip-worker-BR8_C7kl.js","./dos-worker.js","./icon-192.png","./icon-512.png","./icon.svg","./index.html","./licenses/emulators-GPL-2.0.txt","./licenses/fflate-MIT.txt","./licenses/idb-ISC.txt","./licenses/NOTICE.html","./manifest.webmanifest","./test-program.zip","./vendor/emulators.js","./vendor/wdosbox.js","./vendor/wdosbox.wasm","./vendor/wlibzip.js","./vendor/wlibzip.wasm"];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS))));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',e=>{const url=new URL(e.request.url);if(e.request.method!=='GET'||url.origin!==location.origin||!url.pathname.startsWith(new URL(self.registration.scope).pathname))return;
+e.respondWith(caches.open(CACHE).then(async c=>(await c.match(e.request))||fetch(e.request).catch(()=>{if(e.request.mode==='navigate')return c.match(new URL('./index.html',self.registration.scope));throw Error('offline');})));});

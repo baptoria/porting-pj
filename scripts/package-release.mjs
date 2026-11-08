@@ -12,11 +12,11 @@ async function add(dir) {
 await add("docs");
 for (const required of [
   "index.html",
-  "sw.js",
-  "vendor/wdosbox.wasm",
-  "sources/emulators-0.73.8-source.zip",
-  "sources/ed4-mobile-source.zip",
-  "licenses/emulators-GPL-2.0.txt",
+  "ed4/sw.js",
+  "ed4/vendor/wdosbox.wasm",
+  "ed4/sources/emulators-0.73.8-source.zip",
+  "ed4/sources/ed4-mobile-source.zip",
+  "ed4/licenses/emulators-GPL-2.0.txt",
 ])
   if (!files[required]) throw new Error(`Missing release asset: ${required}`);
 const data = zipSync(files, { level: 6 });

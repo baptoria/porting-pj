@@ -11,7 +11,7 @@ This project is distributed under GPL-2.0-only; see `LICENSE`. No warranty is pr
 - Phase 2 adds `public/dos-worker.js`, a GPL-2.0-only launcher adapter that imports the unmodified upstream Worker and observes its exported Emscripten filesystem during persist messages. It records file paths for deletion tracking. The adapter is included in the launcher source archive; upstream JavaScript and WASM bytes remain unchanged.
 - Phase 3 extends this adapter with read-only, range-based access to user-imported OPFS music. It does not modify upstream binaries. The original synthetic PCM generator `scripts/raw-fixture.mjs` and generated `synthetic-raw.zip` are CC0-1.0 fixtures, not ED4 music. Source is included with the launcher. The incremental SHA-256 implementation is launcher source under GPL-2.0-only; no new third-party dependency was added.
 - `public/sources/ed4-mobile-source.zip` is generated at build with all launcher source, build scripts, tests, lockfile and notices. When building from this archive, fetch upstream sources using `python scripts/fetch-sources.py` before deployment.
-- Serve `docs/sources/` and `docs/licenses/` alongside executable assets when publishing. The in-app license link exposes both source archives. The service worker intentionally does not precache source archives; download them while online. Do not deploy only JavaScript/WASM and omit corresponding sources/notices.
+- Serve `docs/ed4/sources/` and `docs/ed4/licenses/` alongside executable assets when publishing. The in-app license link exposes both source archives. The service worker intentionally does not precache source archives; download them while online. Do not deploy only JavaScript/WASM and omit corresponding sources/notices.
 
 ## Other runtime libraries
 

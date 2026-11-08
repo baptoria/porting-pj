@@ -1,5 +1,7 @@
 # GitHub Desktop / docs 배포 검사 보고서
 
+> 2026-11-09 경로 이전: 현재 배포는 porting-pj 저장소의 docs/ed4/입니다. 최신 경로와 검증은 PATH_MIGRATION_REPORT.md를 따르세요. 아래 내용은 이전 배포 준비 기록입니다.
+
 2026-11-08 / Phase 3 앱 0.3.0 / 프로젝트 `D:\porting\ed4-mobile`.
 
 ## 준비 결과

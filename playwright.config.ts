@@ -4,7 +4,7 @@ export default defineConfig({
   timeout: 60000,
   workers: 1,
   use: {
-    baseURL: "http://localhost:4173/ed4-mobile/",
+    baseURL: "http://localhost:4173/porting-pj/ed4/",
     headless: true,
     channel: "chrome",
     viewport: { width: 1440, height: 1000 },
@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   webServer: {
     command: "node scripts/serve-pages.mjs",
-    url: "http://localhost:4173/ed4-mobile/",
+    url: "http://localhost:4173/porting-pj/ed4/",
     reuseExistingServer: false,
   },
 });

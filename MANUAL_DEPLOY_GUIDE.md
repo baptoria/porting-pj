@@ -1,5 +1,7 @@
 # GitHub Pages 수동 배포 가이드
 
+> 2026-11-09 경로 이전: 현재 배포는 porting-pj 저장소의 docs/ed4/입니다. 최신 경로와 검증은 PATH_MIGRATION_REPORT.md를 따르세요. 아래 내용은 이전 배포 준비 기록입니다.
+
 > 이전 웹 ZIP 업로드용 안내입니다. 현재 GitHub Desktop 배포는 GITHUB_DESKTOP_GUIDE.md의 main /docs 절차를 사용하세요. 새 빌드는 docs/에 생성됩니다.
 
 대상: 저장소 이름 **ed4-mobile**, GitHub Pages 프로젝트 경로 **/ed4-mobile/**. 계정 연결·저장소 생성·업로드·실제 배포는 이 작업에서 수행하지 않았습니다.

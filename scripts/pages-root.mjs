@@ -1,0 +1,44 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+
+// Source for the Pages landing page and the obsolete root-worker migration.
+export const rootIndex = `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#121c22">
+  <title>Porting PJ · 게임 실행기</title>
+  <style>
+    body{margin:0;background:#10181d;color:#e1e8e9;font:18px/1.7 system-ui,sans-serif}
+    main{max-width:640px;margin:12vh auto;padding:32px}
+    h1{font-size:2rem}p{color:#b9c8cb}a{display:inline-block;margin:20px 0;padding:14px 24px;background:#d8ba83;color:#10181d;border-radius:12px;font-weight:700;text-decoration:none}
+    a:focus-visible{outline:3px solid white;outline-offset:4px}small{display:block;color:#a4b4b7}
+  </style>
+</head>
+<body><main>
+  <h1>Porting PJ</h1>
+  <p>브라우저에서 실행하는 게임 서재입니다. 현재는 구영웅전설4 DOS 실행기를 제공합니다.</p>
+  <a href="./ed4/">영웅전설4 실행기 열기</a>
+  <small>게임 파일은 제공하지 않습니다. 실행기에서 본인이 보유한 파일을 등록하세요.</small>
+  <small>오프라인 실행과 홈 화면 추가는 영웅전설4 실행기에서 준비하세요.</small>
+</main></body>
+</html>
+`;
+
+// Served at the OLD worker URL so existing root registrations can update.
+// No fetch interception, navigation, IndexedDB or OPFS deletion.
+export const retiredRootWorker = `// Retire the former ED4 root worker; keep game data and child scopes.
+self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
+self.addEventListener('activate', event => event.waitUntil((async () => {
+  const prefix = 'ed4-shell-' + encodeURIComponent(new URL(self.registration.scope).pathname) + '-';
+  await Promise.all((await caches.keys()).filter(key => key.startsWith(prefix)).map(key => caches.delete(key)));
+  await self.registration.unregister();
+})()));
+`;
+
+export async function writePagesRoot() {
+  await mkdir('docs', { recursive: true });
+  await writeFile('docs/index.html', rootIndex);
+  await writeFile('docs/.nojekyll', '');
+  await writeFile('docs/sw.js', retiredRootWorker);
+}

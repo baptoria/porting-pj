@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { unzipSync, zipSync, strFromU8 } from "fflate";
 async function ready(page: Page) {
   page.on("dialog", (d) => void d.accept());
-  await page.goto("/ed4-mobile/");
+  await page.goto("/porting-pj/ed4/");
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
 }
 function raw(n = 1) {
