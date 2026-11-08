@@ -7,6 +7,7 @@ import { rawInfo } from "./raw-audio";
 import type { Files } from "./model";
 import type { SourceInput } from "./source-import";
 import { ensureSpace } from "./storage";
+import { ImportMeter } from "./import-trace";
 const CHUNK = 256 * 1024,
   MAX = 768 * 1024 * 1024;
 const crcTable = Uint32Array.from({ length: 256 }, (_, i) => {
@@ -32,7 +33,16 @@ self.onmessage = async (e) => {
   let coreBytes = 0,
     total = 0,
     maxChunk = 0,
+    maxInflateOutput = 0,
     dir: FileSystemDirectoryHandle | undefined;
+  let currentFile = '';
+  let hashingZip=false;
+  const meter = new ImportMeter(Array.isArray(input) ? 'folder' : 'zip', trace => self.postMessage({
+    progress: `${trace.stage ?? 'index'} · ${currentFile}`, currentFile,
+    completedBytes: hashingZip ? trace.stages.zipSha?.bytes ?? 0 : trace.completedBytes,
+    totalBytes: hashingZip ? (input as File).size : trace.totalBytes, trace,
+  }), stage=>self.postMessage({operation:stage,fileIndex:meter.data.fileIndex}));
+  const read = async (blob: Blob) => new Uint8Array(await meter.async('read', blob.size, () => blob.arrayBuffer()));
   try {
     const entries = Array.isArray(input)
       ? input.map((f) => ({
@@ -42,7 +52,7 @@ self.onmessage = async (e) => {
           blob: f.file,
           directory: false,
         }))
-      : await zipEntries(input);
+      : await meter.async('index', 0, () => zipEntries(input,read));
     const seen = new Set<string>();
     const tree: Files = Object.create(null);
     for (const en of entries) {
@@ -55,10 +65,13 @@ self.onmessage = async (e) => {
       throw Error("파일 개수 제한");
     const expectedBytes = entries.reduce((n, en) => n + en.size, 0);
     if (expectedBytes > MAX) throw Error("전체 해제 크기 768 MiB 제한 초과. 폴더 구조를 확인하세요.");
-    await ensureSpace(expectedBytes);
+    meter.data.totalBytes = expectedBytes;
+    await meter.async('space', 0, () => ensureSpace(expectedBytes));
     let processed = 0, lastProgress = 0;
     for (const en of entries) {
       if (en.directory) continue;
+      currentFile = en.originalPath;
+      meter.data.fileIndex++;
       const raw = en.path.endsWith(".RAW");
       if (musicOnly && !raw)
         throw Error("음악 등록에는 RAW 파일만 선택하세요: " + en.path);
@@ -82,13 +95,13 @@ self.onmessage = async (e) => {
       let access: any;
       const key = String(tracks.length) + ".bin";
       if (raw) {
-        dir ??= await musicDirectory(requestId, true);
-        const h = await dir.getFileHandle(key, { create: true });
+        dir ??= await meter.async('opfs', 0, () => musicDirectory(requestId, true));
+        const h = await meter.async('opfs', 0, () => dir!.getFileHandle(key, { create: true }));
         if (!("createSyncAccessHandle" in h))
           throw Error(
             "OPFS 동기 파일 접근을 지원하지 않습니다. 음악 없이 등록하세요.",
           );
-        access = await (h as any).createSyncAccessHandle();
+        access = await meter.async('opfs', 0, () => (h as any).createSyncAccessHandle());
       }
       const consume = (chunk: Uint8Array) => {
         if (written + chunk.length > en.size)
@@ -98,16 +111,17 @@ self.onmessage = async (e) => {
             chunk.subarray(0, Math.min(8 - written, chunk.length)),
             written,
           );
-        hash.update(chunk);
-        crc = crcStep(crc, chunk);
+        meter.sync('fileSha', chunk.length, () => hash.update(chunk));
+        if (!('blob' in en)) crc = meter.sync('crc', chunk.length, () => crcStep(crc, chunk));
         maxChunk = Math.max(maxChunk, chunk.length);
         if (access) {
-          const n = access.write(chunk, { at: written });
+          const n = meter.sync('opfs', chunk.length, () => access.write(chunk, { at: written }));
           if (n !== chunk.length)
             throw Error("음악 저장 불완전: 저장 공간을 확인하세요.");
         } else body!.set(chunk, written);
         written += chunk.length;
         processed += chunk.length;
+        meter.data.completedBytes = processed;
         if (performance.now() - lastProgress > 150) {
           lastProgress = performance.now();
           self.postMessage({ progress: `파일 처리: ${en.originalPath}`, completedBytes: processed, totalBytes: expectedBytes, currentFile: en.originalPath });
@@ -117,13 +131,11 @@ self.onmessage = async (e) => {
         if ("blob" in en) {
           for (let p = 0; p < en.size; p += CHUNK)
             consume(
-              new Uint8Array(await en.blob.slice(p, p + CHUNK).arrayBuffer()),
+              await read(en.blob.slice(p, p + CHUNK)),
             );
         } else {
           const zip = input as File,
-            head = new Uint8Array(
-              await zip.slice(en.offset, en.offset + 30).arrayBuffer(),
-            );
+            head = await read(zip.slice(en.offset, en.offset + 30));
           if (head.length !== 30) throw Error("ZIP 파일 헤더 누락");
           const hv = new DataView(head.buffer);
           if (
@@ -134,29 +146,39 @@ self.onmessage = async (e) => {
           const nl = hv.getUint16(26, true),
             dataAt = en.offset + 30 + nl + hv.getUint16(28, true);
           const localName = new TextDecoder("utf-8", { fatal: true }).decode(
-            await zip.slice(en.offset + 30, en.offset + 30 + nl).arrayBuffer(),
+            await read(zip.slice(en.offset + 30, en.offset + 30 + nl)),
           );
           if (
             canonicalPath(localName) !== en.path ||
             dataAt + en.compressed > zip.size
           )
             throw Error("ZIP 로컬 경로/크기 불일치");
-          const inflater = en.method === 8 ? new Inflate(consume) : undefined;
-          for (let p = 0; p < en.compressed; p += 32768) {
-            const chunk = new Uint8Array(
-              await zip
-                .slice(dataAt + p, dataAt + Math.min(p + 32768, en.compressed))
-                .arrayBuffer(),
-            );
-            if (inflater)
+          // A small deflate input can expand ~1000x. Slice hashing/CRC/writes too.
+          let consumeMs = 0;
+          const inflater = en.method === 8 ? new Inflate(output => {
+            maxInflateOutput=Math.max(maxInflateOutput,output.length);
+            const t=performance.now();
+            for(let at=0;at<output.length;at+=CHUNK) consume(output.subarray(at,at+CHUNK));
+            consumeMs += performance.now()-t;
+          }) : undefined;
+          const inputChunk = inflater ? 4096 : CHUNK;
+          for (let p = 0; p < en.compressed; p += inputChunk) {
+            const chunk = await read(zip.slice(dataAt+p,dataAt+Math.min(p+inputChunk,en.compressed)));
+            if (inflater) {
+              consumeMs=0;
+              const t=meter.begin('inflate');
               inflater.push(chunk, p + chunk.length === en.compressed);
+              // Exclusive inflate time: callback SHA/CRC/OPFS is separately measured.
+              meter.end('inflate',t+consumeMs,chunk.length);
+            }
             else consume(chunk);
           }
-          if ((crc ^ 0xffffffff) >>> 0 !== en.crc)
-            throw Error("ZIP CRC 불일치: " + en.path);
+          meter.sync('crc',0,()=>{
+            if ((crc ^ 0xffffffff) >>> 0 !== en.crc) throw Error("ZIP CRC 불일치: " + en.path);
+          });
         }
         if (written !== en.size) throw Error("파일 길이가 맞지 않습니다.");
-        const digest = hash.hex();
+        const digest = meter.sync('fileSha', 0, () => hash.hex());
         originalPaths[en.path] = en.originalPath;
         manifest.push(`${en.path}\0${en.size}\0${digest}`);
         if (raw) {
@@ -164,7 +186,7 @@ self.onmessage = async (e) => {
           // PCM preview layout. Preserve bytes even when preview is unsupported.
           let previewCompatible = false;
           try { rawInfo(en.size, header); previewCompatible = true; } catch {}
-          access.flush();
+          meter.sync('opfs', 0, () => access.flush());
           tracks.push({
             path: en.path,
             originalPath: en.originalPath,
@@ -179,25 +201,28 @@ self.onmessage = async (e) => {
         } else {
           files[en.path] = body!;
         }
+      } catch(error) {
+        // Do not let cleanup overwrite the failing CRC/hash/read/write stage.
+        meter.data.status='failed';meter.publish(true);throw error;
       } finally {
-        access?.close();
+        if(access){
+          if(meter.data.status==='failed'){try{access.close();}catch{}}
+          else meter.sync('opfs', 0, () => access.close());
+        }
       }
     }
     let sha256: string | undefined,
       versionId: string,
       manifestSha256: string | undefined;
     if (!Array.isArray(input)) {
+      hashingZip=true;
       const hash = new Sha256();
-      for (let p = 0; p < input.size; p += 1024 * 1024) {
-        hash.update(
-          new Uint8Array(await input.slice(p, p + 1024 * 1024).arrayBuffer()),
-        );
-        if (p % (16 * 1024 * 1024) === 0)
-          self.postMessage({
-            progress: `ZIP SHA-256 확인: ${Math.round((p / input.size) * 100)}%`,
-          });
+      currentFile = '';
+      for (let p = 0; p < input.size; p += CHUNK) {
+        const b=await read(input.slice(p,p+CHUNK));
+        meter.sync('zipSha', b.length, () => hash.update(b));
       }
-      sha256 = hash.hex();
+      sha256 = meter.sync('zipSha', 0, () => hash.hex());
       versionId = "sha256:" + sha256;
     } else {
       manifestSha256 = new Sha256()
@@ -205,6 +230,7 @@ self.onmessage = async (e) => {
         .hex();
       versionId = "folder:" + manifestSha256;
     }
+    const finalizeStart=meter.begin('finalize');
     const pack: MusicPack | undefined = tracks.length
       ? {
           id: requestId,
@@ -229,6 +255,9 @@ self.onmessage = async (e) => {
       fileCount: Object.keys(files).length,
       musicPackId: pack?.id,
     };
+    meter.end('finalize',finalizeStart);
+    meter.data.buffers={coreBytes,maxConsumeChunk:maxChunk,maxInflateOutput};
+    meter.data.status='staged';meter.publish(true);
     self.postMessage(
       {
         archive,
@@ -236,13 +265,14 @@ self.onmessage = async (e) => {
         measurement: {
           stage: "stream import",
           elapsedMs: performance.now() - start,
-          logicalBytes: coreBytes + maxChunk,
-          note: `Observed core retained bytes + largest output chunk (${maxChunk} B); OPFS ${pack?.bytes ?? 0} B; not total heap/peak/RSS`,
+          logicalBytes: coreBytes + Math.max(maxChunk,maxInflateOutput),
+          note: `Observed core retained bytes + largest consume/inflate output (${maxChunk}/${maxInflateOutput} B); OPFS ${pack?.bytes ?? 0} B; excludes inflater internal buffers/input/GC; not total heap/peak/RSS`,
         },
       },
       { transfer: Object.values(files).map((b) => b.buffer as ArrayBuffer) },
     );
   } catch (error) {
+    meter.data.status='failed';meter.data.error=error instanceof Error?error.name:'Error';meter.publish(true);
     self.postMessage({
       error: error instanceof Error ? error.message : String(error),
       errorName: error instanceof Error ? error.name : undefined,

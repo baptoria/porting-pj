@@ -3,12 +3,12 @@ import { measure } from "./telemetry";
 import { overlayFiles } from "./save-state";
 self.onmessage = (e) => {
   try {
-    const { profile, archives, save } = e.data;
+    const { profile, archives, save, temporary } = e.data;
     const start = performance.now();
     const bytes =
       archives.reduce((n: number, a: { size: number }) => n + a.size, 0) +
       Object.values(overlayFiles(save)).reduce((n, b) => n + b.byteLength, 0);
-    const bundle = createRuntime(profile, archives, save);
+    const bundle = createRuntime(profile, archives, save, temporary);
     self.postMessage(
       {
         bundle,

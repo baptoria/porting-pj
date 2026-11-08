@@ -1,5 +1,6 @@
 import type { Profile, ProfileKind } from "./model";
 import { prepareRegistration, commitRegistration, discardRegistration, importAdvice, type Registration } from "./simple-registration";
+import { importTrace, failImport } from './import-trace';
 
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]!);
 export function installSimpleImport(options: {
@@ -21,6 +22,7 @@ export function installSimpleImport(options: {
     <p class="hint">EFFECT 하위 RAW도 포함해 선택하세요. 최상위 선택 폴더 이름만 제외하며 내부 경로와 원래 이름 정보는 보존합니다.</p>
     <progress id="simple-progress" max="1" value="0" hidden></progress>
     <p id="simple-progress-text" role="status" aria-live="polite">폴더 선택을 지원하지 않으면 ZIP을 사용하세요.</p>
+    <button id="import-diagnostics" type="button">등록 진단 JSON 다운로드</button>
     <section id="simple-choice" hidden>
       <p id="simple-analysis"></p><pre id="simple-issues"></pre>
       <label>처음 한 번 실행 파일 선택<select id="simple-executable"></select></label>
@@ -31,6 +33,10 @@ export function installSimpleImport(options: {
   </dialog>`);
   const find = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const dialog = find<HTMLDialogElement>('simple-import-dialog');
+  find('import-diagnostics').onclick=()=>{
+    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'ed4-import-diagnostics',appVersion:'0.5.0',diagnosticRevision:'phase6-1',userAgent:navigator.userAgent,trace:importTrace()},null,2)],{type:'application/json'}));
+    const a=document.createElement('a');a.href=url;a.download='ed4-import-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
   let controller: AbortController | undefined, draft: Registration | undefined, processing = false;
   const message = (text: string) => { find('simple-progress-text').textContent = text; };
   function controls(disabled: boolean) {
@@ -77,6 +83,7 @@ export function installSimpleImport(options: {
   async function finish(manual: boolean) {
     if (!draft || !controller) return;
     const completed = draft;
+    message('게임·프로필 IndexedDB 확정 중… 완료될 때까지 이 화면을 유지하세요.');
     const profile = await commitRegistration(completed, find<HTMLSelectElement>('simple-executable').value, manual, controller.signal);
     draft = undefined; controller = undefined;
     dialog.close();
@@ -87,6 +94,7 @@ export function installSimpleImport(options: {
     controls(true);
     try { await action(); }
     catch (error) {
+      failImport(error);
       const prior = draft; draft = undefined;
       await discardRegistration(prior).catch(e => options.notify(importAdvice(e), true));
       message(importAdvice(error)); options.notify(importAdvice(error), true);

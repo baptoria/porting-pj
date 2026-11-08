@@ -1,14 +1,16 @@
-import type { Archive, Profile, Save } from "./model";
+import type { Archive, Profile, Save, Files } from "./model";
 import { overlayFiles } from "./save-state";
 import { record } from "./telemetry";
 export async function buildRuntime(
   profile: Profile,
   archives: Archive[],
   save?: Save,
+  temporary: Files = {},
 ): Promise<Uint8Array> {
   const buffers = [
     ...archives.flatMap((a) => Object.values(a.files)),
     ...Object.values(overlayFiles(save)),
+    ...Object.values(temporary),
   ];
   if (buffers.reduce((n, b) => n + b.byteLength, 0) > 256 * 1024 * 1024)
     throw new Error(
@@ -46,7 +48,7 @@ export async function buildRuntime(
         ),
       );
     };
-    worker.postMessage({ profile, archives, save }, [
+    worker.postMessage({ profile, archives, save, temporary }, [
       ...new Set(buffers.map((b) => b.buffer as ArrayBuffer)),
     ]);
   });

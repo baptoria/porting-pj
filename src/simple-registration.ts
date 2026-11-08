@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS, id, type Archive, type Files, type Profile, type Prof
 import { musicMounts, resolvedTracks } from "./music";
 import { getArchive, putProfile, storageError } from "./storage";
 import { importSources, checkCancelled, discardStagedMusic, type SourceInput, type ImportProgress } from "./source-import";
+import { importCommit } from './import-trace';
 
 export interface Registration {
   archive: Archive;
@@ -67,7 +68,7 @@ export async function commitRegistration(draft: Registration, executable: string
   // OPFS handles/metadata must be accessible before linking the profile.
   await musicMounts(profile, draft.files);
   checkCancelled(signal);
-  await putProfile(profile, [draft.archive], signal);
+  await importCommit('profileDb',()=>putProfile(profile, [draft.archive], signal));
   draft.committed = true;
   return profile;
 }

@@ -46,6 +46,9 @@ import { RawPreview, rawInfo } from "./raw-audio";
 import { enterLandscape } from "./mobile";
 import { inspectGame } from "./file-analysis";
 import { installSimpleImport } from "./simple-import-ui";
+import { importTrace } from './import-trace';
+import { bootPlan, BootTrace } from './boot-trace';
+import type { Files, DosSettings } from './model';
 
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector)!;
@@ -79,6 +82,9 @@ const logs: string[] = [];
 const rawPreview = new RawPreview();
 let lastEngineMetrics: ReturnType<DosEngine["diagnostics"]> | undefined;
 let lastError = "";
+let diagnosticRun=false;
+let bootTrace:BootTrace|undefined;
+let bootSettings:{profileId:string;original:DosSettings;comparison:DosSettings;config:string}|undefined;
 
 $("#app").innerHTML = `
 <header class="topbar"><a class="brand" href="./"><span class="brand-mark">E<span>4</span></span><span>ED4 <b>MOBILE</b><small>PERSONAL DOS LIBRARY</small></span></a><div class="header-right"><span class="phase">PHASE 02</span><span id="offline" class="badge">온라인 준비</span><button id="install" class="quiet">앱 설치</button></div></header>
@@ -100,7 +106,7 @@ $("#app").innerHTML = `
 <input id="recover-file" type="file" accept=".zip" hidden><input id="patch-file" type="file" accept=".zip" hidden><input id="restore-file" type="file" accept=".zip" hidden><input id="relink-file" type="file" accept=".zip" hidden>
 `;
 
-$(".phase").textContent = "PHASE 05";
+$(".phase").textContent = "PHASE 06 · 진단";
 $("footer span").textContent = "ED4 MOBILE / PHASE 5";
 $("#play-area").insertAdjacentHTML(
   "afterbegin",
@@ -310,6 +316,9 @@ async function diagnostic() {
         }
       : undefined,
     measurements: [...measurements],
+    importTrace: importTrace(),
+    bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
+    bootSettings,
     engine: engine?.diagnostics() ?? lastEngineMetrics,
     rawPreview: {
       state: rawPreview.state,
@@ -343,9 +352,10 @@ async function diagnostic() {
     }),
     logs: [...logs],
     appVersion: "0.5.0",
+    diagnosticRevision: 'phase6-1',
     runStage: $("#run-state").textContent,
     lastError,
-    verification: "Galaxy 기본 DOSBox 구동은 사용자 확인 완료. 실제 ED4 등록·게임·한글·BGM은 실기 확인 필요.",
+    verification: "Galaxy DOSBox 및 GAME.BAT/사운드 초기화 메시지까지 사용자 확인. 이후 검은 화면. 실제 ED4 정상 진행은 미확인. 500MB ZIP 시간 초과, 동일 게임 폴더 등록 성공은 사용자 관측.",
   };
 }
 on("#inspect-profile", async () => {
@@ -367,6 +377,9 @@ on("#export-diagnostics", async () => {
       version: 2,
       profile: selected ? current() : undefined,
       measurements,
+      importTrace: importTrace(),
+      bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
+      bootSettings,
       logs,
       error: storageError(error),
     };
@@ -394,6 +407,11 @@ function status(message: string, error = false) {
   }
 }
 function log(message: string) {
+  if(diagnosticRun && bootTrace){
+    bootTrace.accept(message);
+    const r=bootTrace.report();
+    $('#trace-status').textContent=r.lastEntered?`진단 ${r.lastEntered.id} · ${r.lastEntered.command} · ${r.returned?'반환 확인':'진입 확인 / 반환 미확인'}`:'진단 마커 대기';
+  }
   logs.push(message);
   if (logs.length > 120) logs.shift();
   $("#logs").textContent = logs.join("\n");
@@ -417,6 +435,7 @@ async function task(action: () => Promise<void>) {
   }
   busy = true;
   document.body.classList.add("busy");
+  updateButtons();
   try {
     await action();
   } catch (e) {
@@ -435,7 +454,7 @@ function updateButtons() {
   $("#play").toggleAttribute("disabled", !!engine || !selected || busy);
   for (const button of ["#pause", "#stop"])
     $(button).toggleAttribute("disabled", !running || busy);
-  for (const button of ["#edit-profile", "#add-patch", "#restore"])
+  for (const button of ["#edit-profile", "#add-patch", "#restore", "#boot-open"])
     $(button).toggleAttribute("disabled", !selected || !!engine || busy);
   $("#backup").toggleAttribute("disabled", !selected || busy);
 }
@@ -651,6 +670,7 @@ on("#demo", async () => {
 });
 
 async function checkpoint() {
+  if(diagnosticRun) return; // Disposable session: no save, tombstone or generated BAT enters IDB.
   if (checkpointPromise) return checkpointPromise;
   if (!engine || !running) return;
   const e = engine,
@@ -671,7 +691,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-on("#play", async () => {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
   idle();
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
@@ -679,8 +699,12 @@ on("#play", async () => {
       log(message);
       $("#rotate-notice").textContent = message;
     });
-  const p = current();
+  let p = current();
+  diagnosticRun=!!traceOptions;
+  bootTrace=undefined;bootSettings=undefined;
+  $('#trace-status').textContent=diagnosticRun?'진단 마커 대기':'';
   logs.length = 0;
+  $('#logs').textContent='엔진 시작 대기';
   engine = new DosEngine($<HTMLCanvasElement>("#canvas"), log);
   engine.activateAudio();
   engine.setVolume(Number($<HTMLInputElement>("#volume").value) / 100);
@@ -709,7 +733,19 @@ on("#play", async () => {
       throw Error(
         "선택한 실행 파일은 PE/NE 형식입니다. Windows/OS2 프로그램은 지원하지 않습니다. DOS EXE/BAT를 선택하세요.",
       );
-    const bundle = await buildRuntime(p, input, save);
+    let temporary:Files={};
+    if(traceOptions){
+      const effective={...layerFiles(p,input)};
+      for(const path of deletedFiles(save))delete effective[path];
+      Object.assign(effective,overlayFiles(save));
+      const plan=bootPlan(effective,traceOptions.entry,p.settings.prelude);
+      if(plan.issues.length)throw Error('안전한 자동 추적 범위를 벗어납니다. 원본은 변경하지 않았습니다.\n'+plan.issues.join('\n'));
+      bootTrace=new BootTrace(plan);
+      p={...p,executable:plan.executable,settings:{...traceOptions.settings,prelude:''}};
+      temporary=plan.generated;
+      bootSettings={profileId:current().id,original:{...current().settings},comparison:{...traceOptions.settings},config:dosConfig(p)};
+    }
+    const bundle = await buildRuntime(p, input, save, temporary);
     await engine.start(bundle, mountedMusic);
     running = structuredClone(p);
     paused = false;
@@ -718,14 +754,17 @@ on("#play", async () => {
     $("#screen-label").textContent = p.executable;
     document.body.classList.add("running");
     $("#canvas").focus();
-    status("DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.");
+    $('#stop').textContent=diagnosticRun?'진단 종료 (저장 안 함)':'저장 후 종료';
+    status(diagnosticRun?'임시 진단 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
   } catch (e) {
     await engine?.stop();
     engine = undefined;
+    diagnosticRun=false;
     $("#run-state").textContent = "시작 실패";
     throw Error(storageError(e) + "\n설정에서 실행 파일·음악 연결을 확인하세요. 해결되지 않으면 실행 로그·진단 JSON을 내려받으세요. 기존 세이브는 유지됩니다.");
   }
-});
+}
+on('#play',()=>startGame());
 on("#pause", async () => {
   if (!engine) return;
   paused = !paused;
@@ -740,6 +779,8 @@ on("#stop", async () => {
   await engine.stop();
   engine = undefined;
   running = undefined;
+  diagnosticRun=false;
+  $('#stop').textContent='저장 후 종료';
   paused = false;
   $("#pause").textContent = "일시 정지";
   $("#run-state").textContent = "종료됨";
@@ -1399,5 +1440,57 @@ advanced.addEventListener("toggle", () => {
 $("#settings-toggle").onclick = () => { advanced.open = !advanced.open; if (advanced.open) advanced.scrollIntoView({block:"nearest"}); };
 installSimpleImport({run: task, idle, profiles: () => profiles, selected: () => selected,
   done: async p => { selected = p.id; await refresh(); }, notify: status});
+
+// Phase 6: diagnostic controls reuse the existing UI; never persist a diagnostic profile.
+$('.phase2-card').insertAdjacentHTML('beforeend','<button id="boot-open">BAT 실행 순서 · 임시 진단</button>');
+$('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">화면 PNG</button><button id="run-diagnostics">진단 JSON</button>');
+$('#play-area').insertAdjacentHTML('afterbegin','<div id="trace-status" role="status"></div>');
+$('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="dialog-heading"><h2>임시 실행 추적</h2><button id="boot-close">닫기</button></div>
+<p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
+<label>실제 등록된 실행 파일<select id="boot-entry"></select></label>
+<p>NOSOUND.BAT가 있을 때 아래 실제 명령 순서를 먼저 확인하고 비교하세요. 이름만으로 무음 동작을 보장하지 않습니다. 한글 로더·CD 필요 여부는 참조 증거로만 판단합니다.</p>
+<pre id="boot-analysis"></pre>
+<label>비교용 CPU cycles<input id="boot-cycles" type="number" min="1000" max="100000"></label>
+<label>비교용 메모리<select id="boot-memory"><option>8</option><option>16</option><option>32</option><option>64</option></select></label>
+<label>비교용 Sound Blaster<select id="boot-sound"><option value="sb16">SB16</option><option value="sbpro2">SB Pro 2</option><option value="none">카드 비활성 (NOSOUND.BAT와 다름)</option></select></label>
+<p>기본값은 현재 프로필과 같습니다. sbbase=220 / IRQ=7 / DMA=1 / HDMA=5. 변경값은 이번 진단에만 적용됩니다.</p>
+<button id="boot-start">임시 진단 실행 (저장 안 함)</button></dialog>`);
+$('#run-diagnostics').onclick=()=>$('#export-diagnostics').click();
+$('#boot-close').onclick=()=>$<HTMLDialogElement>('#boot-dialog').close();
+let bootFiles:Files={};
+function showBootAnalysis(){
+  const plan=bootPlan(bootFiles,$<HTMLSelectElement>('#boot-entry').value,current().settings.prelude);
+  $('#boot-analysis').textContent=plan.steps.map(s=>`${s.id}. ${s.batch}:${s.line} [${s.category}] ${s.command}${s.afterExpected?'':' (BAT 연결: 반환 마커 없음)'}`).join('\n')+
+    '\n\n확인 사항: '+(plan.issues.join('\n')||'지원하는 직선 실행 흐름. 실제 동작은 Galaxy에서 확인하세요.')+
+    '\n\n한글 관련 파일 이름 후보: '+(plan.evidence.koreanCandidates.join(', ')||'발견 안 됨 (필요 없음의 증거는 아님)')+
+    '\nCD 이미지 확장자 후보: '+(plan.evidence.cdImages.join(', ')||'없음')+'\n드라이브 참조: '+plan.evidence.driveCommands.map(s=>s.command).join(', ')+
+    '\n한글 깨짐은 별도 문제입니다. LOADER.COM이나 CD가 필수라고 가정하지 않습니다.';
+  $<HTMLButtonElement>('#boot-start').disabled=!!plan.issues.length;
+}
+$('#boot-entry').onchange=showBootAnalysis;
+on('#boot-open',async()=>{
+  idle();const p=current(),save=await getSave(p.id);
+  bootFiles={...await profileFiles(p)};
+  for(const path of deletedFiles(save))delete bootFiles[path];
+  Object.assign(bootFiles,overlayFiles(save));
+  $('#boot-entry').innerHTML=executables(bootFiles).map(path=>`<option value="${esc(path)}">${esc(path)}</option>`).join('');
+  $<HTMLSelectElement>('#boot-entry').value=p.executable;
+  $<HTMLInputElement>('#boot-cycles').value=String(p.settings.cycles);
+  $<HTMLSelectElement>('#boot-memory').value=String(p.settings.memory);
+  $<HTMLSelectElement>('#boot-sound').value=p.settings.sound;
+  showBootAnalysis();$<HTMLDialogElement>('#boot-dialog').showModal();
+});
+on('#boot-start',async()=>{
+  const entry=$<HTMLSelectElement>('#boot-entry').value;
+  const settings:DosSettings={...current().settings,cycles:Number($<HTMLInputElement>('#boot-cycles').value),memory:Number($<HTMLSelectElement>('#boot-memory').value),sound:$<HTMLSelectElement>('#boot-sound').value as DosSettings['sound']};
+  dosConfig({...current(),settings}); // validate before closing or starting
+  $<HTMLDialogElement>('#boot-dialog').close();bootFiles={};
+  await startGame({entry,settings});
+});
+on('#screen-export',async()=>{
+  const blob=await new Promise<Blob|null>(resolve=>$<HTMLCanvasElement>('#canvas').toBlob(resolve,'image/png'));
+  if(!blob)throw Error('화면 저장 실패. 진단 JSON을 내려받거나 기기 화면 캡처를 사용하세요.');
+  download(new Uint8Array(await blob.arrayBuffer()),'ed4-dos-screen.png');
+});
 
 void init().catch((e) => status(storageError(e), true));

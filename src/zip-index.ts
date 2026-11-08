@@ -10,10 +10,8 @@ interface Entry {
   crc: number;
   directory: boolean;
 }
-export async function zipEntries(file: Blob): Promise<Entry[]> {
-  const tail = new Uint8Array(
-      await file.slice(Math.max(0, file.size - 65557)).arrayBuffer(),
-    ),
+export async function zipEntries(file: Blob, read: (blob:Blob)=>Promise<Uint8Array> = async blob=>new Uint8Array(await blob.arrayBuffer())): Promise<Entry[]> {
+  const tail = await read(file.slice(Math.max(0, file.size - 65557))),
     v = new DataView(tail.buffer);
   let at = tail.length - 22;
   for (; at >= 0; at--)
@@ -37,9 +35,7 @@ export async function zipEntries(file: Blob): Promise<Entry[]> {
     throw Error(
       "분할/ZIP64 또는 과다 항목 ZIP은 지원하지 않습니다. 폴더로 등록하세요.",
     );
-  const central = new Uint8Array(
-      await file.slice(offset, offset + len).arrayBuffer(),
-    ),
+  const central = await read(file.slice(offset, offset + len)),
     d = new DataView(central.buffer),
     result: Entry[] = [];
   let pos = 0,

@@ -162,7 +162,9 @@ test('500 MiB synthetic combined ZIP streams RAW and retains bounded core withou
  expect(diagnostic.appVersion).toBe('0.5.0');
  expect(diagnostic.music.every((p:any)=>p.tracks.every((t:any)=>!('header' in t)))).toBe(true);
  const metric=diagnostic.measurements.find((m:any)=>m.stage==='stream import');expect(metric.logicalBytes).toBeLessThan(70*1024*1024);
- await writeFile(info.outputPath('large-zip-measurement.json'),JSON.stringify({scope:'Synthetic ZIP on PC Chrome; not actual ED4/Galaxy or process peak memory',metric,music:diagnostic.engine.music},null,2));
+ expect(diagnostic.importTrace.status).toBe('committed');
+ expect(diagnostic.importTrace.stages.zipSha.bytes).toBeGreaterThan(500*1024*1024);
+ await writeFile(info.outputPath('large-zip-measurement.json'),JSON.stringify({scope:'Synthetic ZIP on PC Chrome; not actual ED4/Galaxy or process peak memory',metric,music:diagnostic.engine.music,importTrace:diagnostic.importTrace},null,2));
 });
 
 test('patch RAW overlays only matching paths, keeps shared music and protects packs used by another profile',async({page})=>{

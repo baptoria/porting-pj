@@ -136,6 +136,7 @@ export function buildBundle(
   archives: Archive[],
   saves: Files = {},
   deleted: string[] = [],
+  temporary: Files = {},
 ): Uint8Array {
   const get = (key: string) => {
     const a = archives.find((a) => a.id === key);
@@ -147,10 +148,14 @@ export function buildBundle(
     get(profile.baseId),
     profile.patchIds.map(get),
   ).files;
-  validateExecutable(profile.executable, combined);
+  validateExecutable(profile.executable, { ...combined, ...temporary });
   const files = { ...combined };
   for (const path of deleted) delete files[canonicalPath(path)];
   Object.assign(files, saves);
+  for(const [path,bytes] of Object.entries(temporary)) {
+    if(files[path] || combined[path] || deleted.includes(path)) throw Error('진단 임시 파일 경로 충돌: '+path);
+    files[path]=bytes;
+  }
   validateTree(files);
   validateExecutable(profile.executable, files);
   files[".jsdos/dosbox.conf"] = strToU8(dosConfig(profile));
@@ -193,8 +198,9 @@ export function createRuntime(
   profile: Profile,
   archives: Archive[],
   save?: Save,
+  temporary: Files = {},
 ) {
   checkRequirements(profile, archives);
   if (save) save = normalizeSave(save);
-  return buildBundle(profile, archives, overlayFiles(save), deletedFiles(save));
+  return buildBundle(profile, archives, overlayFiles(save), deletedFiles(save), temporary);
 }
