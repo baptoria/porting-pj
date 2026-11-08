@@ -12,6 +12,8 @@ export interface Archive {
   analysis?: ArchiveAnalysis;
   sourceKind?: "zip" | "folder";
   musicPackId?: string;
+  /** Original relative names/case; DOS lookup keys remain case-insensitive. */
+  originalPaths?: Record<string, string>;
 }
 export interface ArchiveAnalysis {
   files: number;
@@ -42,6 +44,11 @@ export interface DosSettings {
   sound: "sb16" | "sbpro2" | "none";
   prelude: string;
 }
+export interface MusicReference {
+  packId: string;
+  prefix: string;
+  sourceArchiveId?: string;
+}
 export interface Profile {
   id: string;
   gameId: "ed4";
@@ -57,7 +64,13 @@ export interface Profile {
   archiveIdentities?: Record<string, Identity>;
   requiredBaseVersion?: string;
   savePaths?: string[];
-  music?: { packId: string; prefix: string };
+  music?: MusicReference & { overlays?: MusicReference[] };
+  launch?: {
+    source: "analyzed-batch" | "single-file" | "user-choice";
+    presetId: string;
+    experimental: true;
+    initialization: string[];
+  };
 }
 export interface Save {
   profileId: string;

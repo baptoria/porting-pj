@@ -6,6 +6,7 @@ import { musicDirectory, type MusicPack, type Track } from "./music";
 import { rawInfo } from "./raw-audio";
 import type { Files } from "./model";
 import type { SourceInput } from "./source-import";
+import { ensureSpace } from "./storage";
 const CHUNK = 256 * 1024,
   MAX = 768 * 1024 * 1024;
 const crcTable = Uint32Array.from({ length: 256 }, (_, i) => {
@@ -26,6 +27,7 @@ self.onmessage = async (e) => {
   const start = performance.now(),
     files: Files = Object.create(null),
     tracks: Track[] = [],
+    originalPaths: Record<string, string> = Object.create(null),
     manifest: string[] = [];
   let coreBytes = 0,
     total = 0,
@@ -35,6 +37,7 @@ self.onmessage = async (e) => {
     const entries = Array.isArray(input)
       ? input.map((f) => ({
           path: canonicalPath(f.path),
+          originalPath: f.path.replace(/\\/g, "/"),
           size: f.file.size,
           blob: f.file,
           directory: false,
@@ -50,6 +53,10 @@ self.onmessage = async (e) => {
     validateTree(tree);
     if (entries.length > 12000 || !entries.length)
       throw Error("파일 개수 제한");
+    const expectedBytes = entries.reduce((n, en) => n + en.size, 0);
+    if (expectedBytes > MAX) throw Error("전체 해제 크기 768 MiB 제한 초과. 폴더 구조를 확인하세요.");
+    await ensureSpace(expectedBytes);
+    let processed = 0, lastProgress = 0;
     for (const en of entries) {
       if (en.directory) continue;
       const raw = en.path.endsWith(".RAW");
@@ -63,9 +70,10 @@ self.onmessage = async (e) => {
       )
         throw Error("본체 256 MiB / 전체 768 MiB / 개별 크기 제한 초과");
       self.postMessage({
-        progress: `파일 처리 ${manifest.length + 1}/${entries.length}: ${en.path}`,
+        progress: `파일 처리 ${manifest.length + 1}/${entries.length}: ${en.originalPath}`,
+        completedBytes: processed, totalBytes: expectedBytes, currentFile: en.originalPath,
       });
-      const chunks: Uint8Array[] = [],
+      const body = raw ? undefined : new Uint8Array(en.size),
         hash = new Sha256(),
         header = new Uint8Array(8);
       let written = 0,
@@ -97,8 +105,13 @@ self.onmessage = async (e) => {
           const n = access.write(chunk, { at: written });
           if (n !== chunk.length)
             throw Error("음악 저장 불완전: 저장 공간을 확인하세요.");
-        } else chunks.push(chunk.slice());
+        } else body!.set(chunk, written);
         written += chunk.length;
+        processed += chunk.length;
+        if (performance.now() - lastProgress > 150) {
+          lastProgress = performance.now();
+          self.postMessage({ progress: `파일 처리: ${en.originalPath}`, completedBytes: processed, totalBytes: expectedBytes, currentFile: en.originalPath });
+        }
       };
       try {
         if ("blob" in en) {
@@ -144,12 +157,18 @@ self.onmessage = async (e) => {
         }
         if (written !== en.size) throw Error("파일 길이가 맞지 않습니다.");
         const digest = hash.hex();
+        originalPaths[en.path] = en.originalPath;
         manifest.push(`${en.path}\0${en.size}\0${digest}`);
         if (raw) {
-          rawInfo(en.size, header);
+          // RAW is opaque game data; EFFECT sounds may not use the diagnostic
+          // PCM preview layout. Preserve bytes even when preview is unsupported.
+          let previewCompatible = false;
+          try { rawInfo(en.size, header); previewCompatible = true; } catch {}
           access.flush();
           tracks.push({
             path: en.path,
+            originalPath: en.originalPath,
+            previewCompatible,
             key,
             size: en.size,
             sha256: digest,
@@ -158,13 +177,7 @@ self.onmessage = async (e) => {
             ).join(""),
           });
         } else {
-          const result = new Uint8Array(en.size);
-          let at = 0;
-          for (const c of chunks) {
-            result.set(c, at);
-            at += c.length;
-          }
-          files[en.path] = result;
+          files[en.path] = body!;
         }
       } finally {
         access?.close();
@@ -205,6 +218,7 @@ self.onmessage = async (e) => {
       id: crypto.randomUUID(),
       name,
       files,
+      originalPaths,
       size: coreBytes,
       createdAt: Date.now(),
       sha256,

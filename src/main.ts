@@ -38,12 +38,14 @@ import {
   listMusic,
   musicDirectory,
   musicMounts,
+  musicReferences,
   removeMusic,
   type MusicPack,
 } from "./music";
 import { RawPreview, rawInfo } from "./raw-audio";
 import { enterLandscape } from "./mobile";
 import { inspectGame } from "./file-analysis";
+import { installSimpleImport } from "./simple-import-ui";
 
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector)!;
@@ -76,6 +78,7 @@ let installPrompt: (Event & { prompt(): Promise<void> }) | undefined;
 const logs: string[] = [];
 const rawPreview = new RawPreview();
 let lastEngineMetrics: ReturnType<DosEngine["diagnostics"]> | undefined;
+let lastError = "";
 
 $("#app").innerHTML = `
 <header class="topbar"><a class="brand" href="./"><span class="brand-mark">E<span>4</span></span><span>ED4 <b>MOBILE</b><small>PERSONAL DOS LIBRARY</small></span></a><div class="header-right"><span class="phase">PHASE 02</span><span id="offline" class="badge">온라인 준비</span><button id="install" class="quiet">앱 설치</button></div></header>
@@ -97,8 +100,8 @@ $("#app").innerHTML = `
 <input id="recover-file" type="file" accept=".zip" hidden><input id="patch-file" type="file" accept=".zip" hidden><input id="restore-file" type="file" accept=".zip" hidden><input id="relink-file" type="file" accept=".zip" hidden>
 `;
 
-$(".phase").textContent = "PHASE 03";
-$("footer span").textContent = "ED4 MOBILE / PHASE 3";
+$(".phase").textContent = "PHASE 05";
+$("footer span").textContent = "ED4 MOBILE / PHASE 5";
 $("#play-area").insertAdjacentHTML(
   "afterbegin",
   '<div id="rotate-notice" role="status">기기를 가로로 회전하면 게임 화면이 더 크게 표시됩니다.</div><div id="session-notice" role="status"></div>',
@@ -117,7 +120,7 @@ $("#control-inset").parentElement!.insertAdjacentHTML(
 );
 $(".diagnostics").insertAdjacentHTML(
   "beforebegin",
-  `<section class="card phase3-card"><h3>RAW 음악 · 별도 보관</h3>${import.meta.env.VITE_INCLUDE_SYNTHETIC_RAW !== "false" ? '<a href="./synthetic-raw.zip" download>합성 RAW 2곡 테스트 ZIP 다운로드 (CC0)</a>' : ""}<p class="hint">본체와 음악 버전을 직접 확인하세요. 등록한 음악은 자동 연결하지 않습니다. DOS 내부 재생을 위한 읽기 전용 파일로 제공하며 실제 ED4 연동은 Galaxy 검증 대상입니다.</p><label>RAW 파일 추가<input id="music-files" type="file" accept=".raw" multiple></label><label>RAW 폴더 추가<input id="music-folder" type="file" webkitdirectory multiple></label><label>RAW ZIP 추가<input id="music-zip" type="file" accept=".zip"></label><label>공유 음악 보관함<select id="music-pack"><option value="">음악 없음</option></select></label><label>DOS 배치 경로 (예: ED4, 루트면 빈칸)<input id="music-prefix" maxlength="150" placeholder="음악 파일이 필요한 폴더"></label><div class="card-actions"><button id="music-link">현재 프로필에 연결</button><button id="music-delete" class="danger">선택 음악 삭제</button></div><label>진단용 곡 선택<select id="music-track"></select></label><div class="card-actions"><button id="raw-preview">선택 곡 시험 재생</button><button id="raw-stop">시험 재생 중지</button></div><pre id="music-info">음악 없이 게임 본체만 실행할 수 있습니다.</pre><p class="hint">시험 재생: 22050 Hz · signed PCM16 LE · 스테레오 · 헤더 8바이트 가정. 헤더 의미는 미확인입니다. 게임 음악 명령과 동기화되지 않으며 임의 자동 선곡하지 않습니다.</p></section>`,
+  `<section class="card phase3-card"><h3>RAW 음악 · 별도 보관</h3>${import.meta.env.VITE_INCLUDE_SYNTHETIC_RAW !== "false" ? '<a href="./synthetic-raw.zip" download>합성 RAW 2곡 테스트 ZIP 다운로드 (CC0)</a>' : ""}<p class="hint">본체와 음악 버전을 직접 확인하세요. 간편 등록에 포함된 음악은 자동 연결합니다. 여기서 별도 추가한 음악은 직접 연결하세요. DOS 내부 재생을 위한 읽기 전용 파일로 제공하며 실제 ED4 연동은 Galaxy 검증 대상입니다.</p><label>RAW 파일 추가<input id="music-files" type="file" accept=".raw" multiple></label><label>RAW 폴더 추가<input id="music-folder" type="file" webkitdirectory multiple></label><label>RAW ZIP 추가<input id="music-zip" type="file" accept=".zip"></label><label>공유 음악 보관함<select id="music-pack"><option value="">음악 없음</option></select></label><label>DOS 배치 경로 (예: ED4, 루트면 빈칸)<input id="music-prefix" maxlength="150" placeholder="음악 파일이 필요한 폴더"></label><div class="card-actions"><button id="music-link">현재 프로필에 연결</button><button id="music-delete" class="danger">선택 음악 삭제</button></div><label>진단용 곡 선택<select id="music-track"></select></label><div class="card-actions"><button id="raw-preview">선택 곡 시험 재생</button><button id="raw-stop">시험 재생 중지</button></div><pre id="music-info">음악 없이 게임 본체만 실행할 수 있습니다.</pre><p class="hint">시험 재생: 22050 Hz · signed PCM16 LE · 스테레오 · 헤더 8바이트 가정. 헤더 의미는 미확인입니다. 게임 음악 명령과 동기화되지 않으며 임의 자동 선곡하지 않습니다.</p></section>`,
 );
 let musicPacks: MusicPack[] = [];
 async function refreshMusic() {
@@ -141,7 +144,7 @@ function showTracks() {
   );
   $("#music-track").innerHTML =
     pack?.tracks
-      .map((t, i) => `<option value="${i}">${esc(t.path)}</option>`)
+      .map((t, i) => `<option value="${i}">${esc(t.originalPath ?? t.path)}</option>`)
       .join("") ?? "";
   $("#music-info").textContent = pack
     ? `${pack.tracks.length}곡 / ${size(pack.bytes)} / OPFS / SHA-256 파일별 기록`
@@ -200,7 +203,7 @@ on("#music-delete", async () => {
   idle();
   const packId = $<HTMLSelectElement>("#music-pack").value;
   if (!packId) return;
-  if (profiles.some((p) => p.music?.packId === packId))
+  if (profiles.some((p) => musicReferences(p).some(r => r.packId === packId)))
     throw Error("사용 중인 프로필의 음악 연결을 먼저 해제하세요.");
   if (
     !confirm(
@@ -317,7 +320,8 @@ async function diagnostic() {
       id: p.id,
       name: p.name,
       bytes: p.bytes,
-      tracks: p.tracks,
+      tracks: p.tracks.map(({path, originalPath, size, sha256, previewCompatible}) =>
+        ({path, originalPath, size, sha256, previewCompatible})),
     })),
     storage: await navigator.storage?.estimate(),
     screen: {
@@ -338,7 +342,10 @@ async function diagnostic() {
       };
     }),
     logs: [...logs],
-    verification: "ED4 원본 및 Android 실기기 미검증",
+    appVersion: "0.5.0",
+    runStage: $("#run-state").textContent,
+    lastError,
+    verification: "Galaxy 기본 DOSBox 구동은 사용자 확인 완료. 실제 ED4 등록·게임·한글·BGM은 실기 확인 필요.",
   };
 }
 on("#inspect-profile", async () => {
@@ -371,6 +378,7 @@ on("#export-diagnostics", async () => {
 });
 
 function status(message: string, error = false) {
+  if (error) lastError = message;
   $("#session-notice").textContent = message;
   $("#session-notice").classList.toggle("error", error);
   $("#status").textContent = message;
@@ -461,6 +469,11 @@ async function refresh() {
     $("#exe-label").textContent = "등록 전";
     $("#save-label").textContent = "프로필마다 독립적으로 보관";
   }
+  document.body.classList.toggle("has-profile", !!selected);
+  $("#recent-save").textContent = $("#save-label").textContent;
+  if (selected && [current().baseId, ...current().patchIds].some(key => !archives.some(a => a.id === key)))
+    $("#recent-save").textContent = "게임 데이터가 없습니다. 설정 → 저장 공간 관리 → 다시 연결을 이용하세요. 세이브는 유지됩니다.";
+  try { localStorage.setItem("ed4-selected", selected); } catch {}
   updateButtons();
 }
 $("#profiles").addEventListener("click", (e) => {
@@ -710,7 +723,7 @@ on("#play", async () => {
     await engine?.stop();
     engine = undefined;
     $("#run-state").textContent = "시작 실패";
-    throw e;
+    throw Error(storageError(e) + "\n설정에서 실행 파일·음악 연결을 확인하세요. 해결되지 않으면 실행 로그·진단 JSON을 내려받으세요. 기존 세이브는 유지됩니다.");
   }
 });
 on("#pause", async () => {
@@ -1366,4 +1379,25 @@ async function init() {
     }
   } else $("#offline").textContent = "개발 모드";
 }
+// Phase 5: keep the existing advanced tools, make the default path simple.
+$("#profiles").insertAdjacentHTML("beforebegin", '<button id="simple-import" class="primary wide">게임 등록</button>');
+$("#play").textContent = "▶ 게임 실행";
+$("#empty-screen p").textContent = "게임 폴더 또는 ZIP을 한 번 등록하면 다음부터 바로 실행할 수 있습니다.";
+$("#status").textContent = "게임 등록을 눌러 폴더 또는 ZIP을 선택하세요. RAW 음악도 함께 선택할 수 있습니다.";
+$("#status").insertAdjacentHTML("afterend", '<div class="simple-summary"><span id="recent-save">아직 등록된 게임이 없습니다.</span><button id="settings-toggle" aria-expanded="false">설정 · 백업</button></div><details id="advanced-settings"><summary>고급 설정 · 모드 · 저장 관리</summary><div id="advanced-content"></div></details>');
+for (const selector of ["#open-import", "#demo", "#storage-open", ".detail-grid", ".phase3-card", ".phase2-card", ".diagnostics"])
+  $("#advanced-content").append($(selector));
+$("#open-import").textContent = "고급 등록 / 모드 관리";
+$("#advanced-content").insertAdjacentHTML("afterbegin", '<p class="hint">게임 내부 저장 후 «저장 후 종료»를 누르세요. 브라우저 데이터는 삭제될 수 있으므로 저장 백업 ZIP을 기기 밖에도 보관하세요. CPU·메모리·사운드·실행 파일 변경은 실행 프로필의 설정에서 합니다.</p>');
+$("#play-area").before($(".simple-summary"));
+const advanced = $<HTMLDetailsElement>("#advanced-settings");
+try { advanced.open = localStorage.getItem("ed4-advanced") === "open"; selected = localStorage.getItem("ed4-selected") ?? ""; } catch {}
+advanced.addEventListener("toggle", () => {
+  $("#settings-toggle").setAttribute("aria-expanded", String(advanced.open));
+  try { localStorage.setItem("ed4-advanced", advanced.open ? "open" : "closed"); } catch {}
+});
+$("#settings-toggle").onclick = () => { advanced.open = !advanced.open; if (advanced.open) advanced.scrollIntoView({block:"nearest"}); };
+installSimpleImport({run: task, idle, profiles: () => profiles, selected: () => selected,
+  done: async p => { selected = p.id; await refresh(); }, notify: status});
+
 void init().catch((e) => status(storageError(e), true));

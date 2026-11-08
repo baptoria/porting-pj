@@ -4,6 +4,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 test.beforeEach(async ({ page }) => {
   page.on("dialog", (d) => void d.accept());
   await page.goto("/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
 });
 async function start(page: Page) {
@@ -267,6 +268,7 @@ test("v1 IndexedDB and backup migration remains playable", async ({ page }) => {
     { entries, profile },
   );
   await page.goto("/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   await expect(page.locator("#profile-title")).toHaveText("Phase 1 legacy");
   await start(page);

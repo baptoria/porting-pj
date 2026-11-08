@@ -73,6 +73,13 @@ export async function reconnectArchive(a: Archive) {
         schemaVersion: 2 as const,
         archiveIdentities: { ...p.archiveIdentities, [a.id]: identity(a) },
       };
+      if (next.music && a.musicPackId) {
+        const reconnectMusic = (ref: NonNullable<Profile["music"]>) =>
+          ref.sourceArchiveId === a.id || (prior?.musicPackId && ref.packId === prior.musicPackId)
+            ? { ...ref, packId: a.musicPackId!, sourceArchiveId: a.id } : ref;
+        next.music = { ...reconnectMusic(next.music),
+          ...(next.music.overlays ? { overlays: next.music.overlays.map(reconnectMusic) } : {}) };
+      }
       if (next.requiredBaseVersion === `legacy:${a.id}`)
         next.requiredBaseVersion = identity(a).versionId;
       await tx.objectStore("profiles").put(next);
@@ -111,7 +118,8 @@ export async function listData() {
     profiles: await db.getAll("profiles"),
   };
 }
-export async function putProfile(profile: Profile, archives: Archive[] = []) {
+export async function putProfile(profile: Profile, archives: Archive[] = [], signal?: AbortSignal) {
+  signal?.throwIfAborted();
   await ensureSpace(archives.reduce((n, a) => n + a.size, 0));
   const db = await database();
   const known = await db.getAll("catalog");
@@ -120,8 +128,12 @@ export async function putProfile(profile: Profile, archives: Archive[] = []) {
     if (prior) checkIdentity(identity(prior), a);
     checkIdentity(profile.archiveIdentities?.[a.id], a);
   }
+  signal?.throwIfAborted();
   const normalized = migrateProfile(profile, [...archives, ...known]);
   const tx = db.transaction(["archives", "profiles", "catalog"], "readwrite");
+  const abort = () => { try { tx.abort(); } catch {} };
+  signal?.addEventListener("abort", abort, { once: true });
+  try {
   await Promise.all([
     ...archives.map((a) => tx.objectStore("archives").put(a)),
     ...archives.map((a) =>
@@ -136,6 +148,14 @@ export async function putProfile(profile: Profile, archives: Archive[] = []) {
     tx.objectStore("profiles").put(normalized),
   ]);
   await tx.done;
+  } catch (error) {
+    abort();
+    await tx.done.catch(() => {});
+    signal?.throwIfAborted();
+    throw error;
+  } finally {
+    signal?.removeEventListener("abort", abort);
+  }
 }
 export async function getSave(profileId: string) {
   const save = await (await database()).get("saves", profileId);

@@ -2,6 +2,7 @@ import { canonicalPath, LIMITS } from "./archive";
 const MAX = 768 * 1024 * 1024;
 interface Entry {
   path: string;
+  originalPath: string;
   size: number;
   compressed: number;
   offset: number;
@@ -76,6 +77,7 @@ export async function zipEntries(file: Blob): Promise<Entry[]> {
       throw Error("ZIP 압축 해제 크기가 제한을 초과합니다.");
     result.push({
       path,
+      originalPath: raw.replace(/\\/g, "/").replace(/\/$/, ""),
       size,
       compressed,
       offset: start,

@@ -22,7 +22,8 @@ test('strict subpath: every asset, MIME, manifest, cache isolation and DOS offli
  for(const icon of manifest.icons)expect((await request.get(new URL(icon.src,manifestURL).href)).status()).toBe(200);
  await page.goto('/porting-pj/ed4/licenses/NOTICE.html');
  await page.evaluate(async()=>{await caches.open('ed4-shell-other-project-preserve');await caches.open('ed4-shell-%2Fporting-pj%2Fed4%2F-old-test-version');});
- await page.goto('/porting-pj/ed4/');await expect(page.locator('#offline')).toHaveText('오프라인 준비 완료');
+ await page.goto('/porting-pj/ed4/');
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });await expect(page.locator('#offline')).toHaveText('오프라인 준비 완료');
  await expect(page.locator('a[href="./synthetic-raw.zip"]')).toHaveCount(0);
  const cache=await page.evaluate(async()=>{
   const r=await navigator.serviceWorker.ready;const keys=await caches.keys();
@@ -83,5 +84,6 @@ test('Pages landing, redirects and retired root worker preserve child cache and 
  expect(preserved.caches.some(k=>k.startsWith('ed4-shell-%2Fporting-pj%2Fed4%2F-'))).toBe(true);
  expect(preserved.save).toBe('saved-content');expect(preserved.opfs).toBe('opfs-content');
  await context.setOffline(true);await page.goto('/porting-pj/ed4/');
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
  await expect(page.locator('#offline')).toHaveText('오프라인 준비 완료');
 });

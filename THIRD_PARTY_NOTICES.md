@@ -13,6 +13,8 @@ This project is distributed under GPL-2.0-only; see `LICENSE`. No warranty is pr
 - `public/sources/ed4-mobile-source.zip` is generated at build with all launcher source, build scripts, tests, lockfile and notices. When building from this archive, fetch upstream sources using `python scripts/fetch-sources.py` before deployment.
 - Serve `docs/ed4/sources/` and `docs/ed4/licenses/` alongside executable assets when publishing. The in-app license link exposes both source archives. The service worker intentionally does not precache source archives; download them while online. Do not deploy only JavaScript/WASM and omit corresponding sources/notices.
 
+Phase 5 adds conservative BAT analysis, simple registration, cancellation, original-name metadata, and music reference overlays in launcher source. The emulator version and runtime binaries are unchanged. RAW content remains local user data and is not included in the static deployment.
+
 ## Other runtime libraries
 
 | Package | License | Original author | Notice copied on build |

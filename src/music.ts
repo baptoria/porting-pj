@@ -1,8 +1,10 @@
 import { openDB } from "idb";
 import { canonicalPath, validateTree } from "./archive";
-import type { Files, Profile, Save } from "./model";
+import type { Files, Profile, Save, MusicReference } from "./model";
 export interface Track {
   path: string;
+  originalPath?: string;
+  previewCompatible?: boolean;
   key: string;
   size: number;
   sha256: string;
@@ -58,19 +60,23 @@ export function mountPaths(pack: MusicPack, prefix = "") {
     path: canonicalPath(normalized + t.path),
   }));
 }
+export const musicReferences = (profile: Profile): MusicReference[] => profile.music ? [profile.music, ...(profile.music.overlays ?? [])] : [];
+export async function resolvedTracks(profile: Profile) {
+  const tracks = new Map<string, Track & { packId: string }>();
+  for (const reference of musicReferences(profile)) {
+    const pack = await (await musicDB()).get("packs", reference.packId) as MusicPack | undefined;
+    if (!pack) throw Error("연결된 음악 데이터가 없습니다. 음악을 다시 등록·연결하거나 음악 없음을 선택하세요.");
+    for (const track of mountPaths(pack, reference.prefix)) tracks.set(track.path, { ...track, packId: pack.id });
+  }
+  return [...tracks.values()];
+}
 export async function musicMounts(
   p: Profile,
   core: Files,
   save?: Save,
 ): Promise<MusicMount[]> {
   if (!p.music?.packId) return [];
-  const pack = (await (await musicDB()).get("packs", p.music.packId)) as
-    MusicPack | undefined;
-  if (!pack)
-    throw Error(
-      "연결된 음악 데이터가 없습니다. 음악을 다시 등록·연결하거나 음악 없음을 선택하세요.",
-    );
-  const tracks = mountPaths(pack, p.music.prefix),
+  const tracks = await resolvedTracks(p),
     paths: Files = { ...core, ...save?.files, ...save?.resources };
   for (const t of tracks) {
     if (
@@ -84,10 +90,16 @@ export async function musicMounts(
     paths[t.path] = new Uint8Array();
   }
   validateTree(paths);
-  const dir = await musicDirectory(pack.id);
+  const dirs = new Map<string, FileSystemDirectoryHandle>();
+  for (const packId of new Set(tracks.map(t => t.packId)))
+    dirs.set(packId, await musicDirectory(packId));
   return Promise.all(
     tracks.map(async (t) => {
-      const file = await (await dir.getFileHandle(t.key)).getFile();
+      const file = await (await dirs.get(t.packId)!.getFileHandle(t.key).catch(error => {
+        if (error instanceof DOMException && error.name === "NotFoundError")
+          throw Error("연결된 음악 파일이 사라졌습니다: " + (t.originalPath ?? t.path) + ". 설정의 음악 보관함에서 다시 등록·연결하세요. 게임과 세이브는 유지됩니다.");
+        throw error;
+      })).getFile();
       if (file.size !== t.size) throw Error("음악 파일 크기 불일치: " + t.path);
       return { path: t.path, file };
     }),

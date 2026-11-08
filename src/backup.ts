@@ -155,7 +155,23 @@ export function recoverProfile(bytes: Uint8Array): {
         ? {
             packId: p.music.packId,
             prefix: p.music.prefix ? canonicalPath(p.music.prefix) : "",
+            ...(identifier(p.music.sourceArchiveId) ? { sourceArchiveId: p.music.sourceArchiveId } : {}),
+            ...(Array.isArray(p.music.overlays) && p.music.overlays.length <= 100 ? {
+              overlays: p.music.overlays.map((reference: any) => {
+                if (!identifier(reference?.packId) || typeof reference.prefix !== "string") throw Error("음악 참조 형식 오류");
+                return { packId: reference.packId, prefix: reference.prefix ? canonicalPath(reference.prefix) : "",
+                  ...(identifier(reference.sourceArchiveId) ? { sourceArchiveId: reference.sourceArchiveId } : {}) };
+              }),
+            } : {}),
           }
+        : undefined,
+    launch:
+      p.launch && ["analyzed-batch", "single-file", "user-choice"].includes(p.launch.source) &&
+      typeof p.launch.presetId === "string" && p.launch.presetId.length <= 100 &&
+      Array.isArray(p.launch.initialization) && p.launch.initialization.length <= 200 &&
+      p.launch.initialization.every((path: unknown) => typeof path === "string" && path.length <= 180)
+        ? { source: p.launch.source, presetId: p.launch.presetId, experimental: true,
+            initialization: p.launch.initialization.map((path: string) => canonicalPath(path)) }
         : undefined,
   };
   return { profile, save: importBackup(bytes, profile) };

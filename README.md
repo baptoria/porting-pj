@@ -1,4 +1,4 @@
-# ED4 Mobile — Phase 3
+# ED4 Mobile — Phase 5
 
 경로 이전 결과는 [PATH_MIGRATION_REPORT.md](PATH_MIGRATION_REPORT.md)를 참고하세요. 현재 체크아웃은 저장소 `porting-pj`의 GitHub Desktop + Pages `main /docs` 배포용입니다. [GITHUB_DESKTOP_GUIDE.md](GITHUB_DESKTOP_GUIDE.md)와 [DEPLOY_CHECK_REPORT.md](DEPLOY_CHECK_REPORT.md)를 따르세요. `/porting-pj/ed4/` base로 `docs/ed4/`를 생성하며 RAW 샘플은 배포하지 않습니다. 기존 소스·배포본은 보존했고 GitHub 업로드는 수행하지 않았습니다.
 
@@ -8,11 +8,17 @@ Phase 2에서는 삭제 상태 유지, 원본 ZIP SHA-256 검증, 모드 충돌�
 
 **구영웅전설4 원본은 포함하지 않으며 실제 게임 실행·한글·음악 호환성은 아직 검증하지 않았습니다.** 동봉한 공개 DOS 테스트 프로그램으로 실행/저장/복원 경로를 검증했습니다.
 
-## Phase 3 추가 기능
+## 간편 등록과 실행
 
-가로 전체 화면 우선·방향 잠금 실패 안내, 폴더 등록, RAW 파일/폴더/ZIP 별도 OPFS 보관, DOS 구간 읽기, 선택 곡 PCM 시험 재생, 정적 BAT/드라이버 분석과 진단을 추가했습니다. 음악 없는 실행도 지원합니다. 500 MiB 합성 폴더(본체 68 MiB + RAW 약 432 MiB)를 공개 DOS 프로그램으로 검증했습니다. 실제 ED4 테스트는 사용자의 Galaxy에서만 진행합니다.
+**게임 등록 → 폴더 또는 ZIP 한 번 선택 → 게임 실행**. RAW/EFFECT는 자동 분리·보관하며 명확한 GAME.BAT는 자동 선택합니다. 불명확한 후보는 최초 한 번만 선택하고 이후 프로필에서 바로 실행합니다. 고급 도구와 백업은 설정 메뉴에 있습니다.
 
-현재 단위 76개 / Chrome E2E 17개 통과. [Phase 3 보고서](PHASE3_REPORT.md), [Galaxy 테스트 가이드](ANDROID_TEST_GUIDE.md), [대용량 처리](LARGE_GAME_SUPPORT.md), [RAW 분석](RAW_AUDIO_ANALYSIS.md), [DOS 오디오 호환성](DOS_AUDIO_COMPATIBILITY.md)를 참고하세요. GitHub 업로드·공개 배포는 승인 전 수행하지 않습니다.
+[구현 결과](PHASE5_REPORT.md), [등록 설계](SIMPLE_IMPORT_DESIGN.md), [테스트 결과](ONE_CLICK_LAUNCH_TEST.md), [Galaxy 실제 게임 가이드](GALAXY_TEST_GUIDE.md)를 참고하세요. 이 작업은 GitHub에 Push하지 않았습니다.
+
+## Phase 3에서 이어받은 기능
+
+가로 전체 화면 우선·방향 잠금 실패 안내, 폴더 등록, RAW 파일/폴더/ZIP 별도 OPFS 보관, DOS 구간 읽기, 선택 곡 PCM 시험 재생, 정적 BAT/드라이버 분석과 진단을 추가했습니다. 음악 없는 실행도 지원합니다. 500 MiB 합성 폴더(본체 68 MiB + RAW 약 432 MiB)를 공개 DOS 프로그램으로 검증했습니다. Galaxy 기본 DOSBox 구동은 사용자가 확인했습니다. 실제 ED4 등록·게임·한글·음악 테스트는 사용자의 Galaxy에서 진행합니다.
+
+Phase 5 기준 단위 101개 / Chrome E2E 26개 통과. [Phase 3 보고서](PHASE3_REPORT.md), [Galaxy 테스트 가이드](ANDROID_TEST_GUIDE.md), [대용량 처리](LARGE_GAME_SUPPORT.md), [RAW 분석](RAW_AUDIO_ANALYSIS.md), [DOS 오디오 호환성](DOS_AUDIO_COMPATIBILITY.md)를 참고하세요. GitHub 업로드·공개 배포는 승인 전 수행하지 않습니다.
 
 ## 실행
 

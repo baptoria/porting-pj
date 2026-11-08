@@ -12,6 +12,7 @@ test("real DOS worker: input, save, restart, isolation, backup, offline", async 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   await page.locator("#demo").click();
   await expect(page.locator("#profile-title")).toHaveText("공개 DOS 테스트");
@@ -84,6 +85,7 @@ test("browser process restart restores saves; backup recovery after data removal
   page.on("dialog", (d) => void d.accept());
   try {
     await page.goto("http://localhost:4173/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
     await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
     await page.locator("#demo").click();
     await page.locator("#play").click();
@@ -102,6 +104,7 @@ test("browser process restart restores saves; backup recovery after data removal
     page = context.pages()[0];
     page.on("dialog", (d) => void d.accept());
     await page.goto("http://localhost:4173/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
     await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
     await page.locator("#play").click();
     await expect(page.locator("#run-state")).toHaveText("실행 중");
@@ -141,6 +144,7 @@ test("mobile portrait layout and rejected ZIP do not register a profile", async 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   expect(
     await page.evaluate(
@@ -168,6 +172,7 @@ test("ZIP upload, patch conflicts, standalone, mobile touch and layout", async (
 }) => {
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto("/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   await page.locator("#open-import").click();
   await page.locator("#zip-file").setInputFiles("public/test-program.zip");
@@ -222,9 +227,11 @@ test("ZIP upload, patch conflicts, standalone, mobile touch and layout", async (
 
 test("second tab cannot write", async ({ page, context }) => {
   await page.goto("/porting-pj/ed4/");
+  await page.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   const second = await context.newPage();
   await second.goto("/porting-pj/ed4/");
+  await second.locator("#advanced-settings").evaluate(el => { (el as HTMLDetailsElement).open = true; });
   await expect(second.locator("#status")).toContainText("다른 탭");
   await second.locator("#demo").click();
   await expect(second.locator("#profile-count")).toHaveText("00");
