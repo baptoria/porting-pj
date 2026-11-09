@@ -9,7 +9,8 @@ import type { MusicMount } from "./music";
 import { DosObservation } from './dos-observation';
 import { RuntimeErrors, diagnosticText } from './runtime-errors';
 import { RebootObservation } from './reboot-observation';
-import { prepareRebootEngine, REBOOT_ENGINE } from './experimental-engine';
+import { CpuHistory } from './cpu-history';
+import { prepareRebootEngine, experimentalEngine, type ExperimentalEngineId } from './experimental-engine';
 declare global {
   interface Window {
     emulators: Emulators;
@@ -64,6 +65,7 @@ export class DosEngine implements Engine {
   private observation=new DosObservation();
   private runtimeErrors=new RuntimeErrors();
   private reboot=new RebootObservation();
+  private cpuHistory=new CpuHistory();
   private experimental=false;
   private artifact:{id:string;emulators:string;wasmSha256?:string;expectedSha256?:string;verification:string;sourceCommit:string}={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
   musicMetrics?: {
@@ -85,6 +87,7 @@ export class DosEngine implements Engine {
       runtimeErrors:this.runtimeErrors.report(),
       artifact:{...this.artifact},
       reboot:this.reboot.report(),
+      cpuHistory:this.cpuHistory.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -106,19 +109,20 @@ export class DosEngine implements Engine {
   setVolume(volume: number) {
     if (this.gain) this.gain.gain.value = volume;
   }
-  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:'phase9-2';discardWrites:true}) {
+  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:ExperimentalEngineId;discardWrites:true}) {
     this.startedAt = performance.now();
     this.observation=new DosObservation();
     this.runtimeErrors=new RuntimeErrors();
     this.reboot=new RebootObservation();
+    this.cpuHistory=new CpuHistory();
     this.experimental=false;
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(experiment.id!=='phase9-2'||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      if(!['phase9-2','phase9-3'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=true;
-      this.artifact={...this.artifact,id:'phase9-2',wasmSha256:undefined,expectedSha256:REBOOT_ENGINE.wasmSha256,verification:'not-yet-verified'};
-      try{verified=await prepareRebootEngine();}
+      this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
+      try{verified=await prepareRebootEngine(experiment.id);}
       catch(e){this.runtimeErrors.record('experimental-engine-load',{name:'Error',message:String(e)});throw e;}
       this.artifact={...this.artifact,wasmSha256:verified.sha256,verification:'sha256-of-compiled-module'};
     }
@@ -127,13 +131,17 @@ export class DosEngine implements Engine {
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
     const worker = (this.worker = new Worker(
-      `${import.meta.env.BASE_URL}${this.experimental?'dos-worker-phase9-2.js':'dos-worker.js'}`,
+      `${import.meta.env.BASE_URL}${experiment?`dos-worker-${experiment.id}.js`:'dos-worker.js'}`,
     ));
     const sessionId = crypto.randomUUID();
     let handler: MessageHandler | undefined;
     let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-cpu-history'){
+        if(experiment?.id==='phase9-3'&&this.cpuHistory.accept(event.data.props))this.log('재부팅 직전 CPU 실행 이력을 진단 JSON에 기록했습니다. 원인 확정은 이력 분석이 필요합니다.');
+        return;
+      }
       if(event.data?.name==='ed4-reboot-event'){
         if(this.experimental){const e=this.reboot.accept(event.data.props);if(e?.kind==='reboot-handler')this.log(`BIOS 재부팅 진입: ${e.route} · CPU 상태를 진단 JSON에 기록했습니다. 게임 초기화 성공을 뜻하지 않습니다.`);}
         return;

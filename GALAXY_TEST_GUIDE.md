@@ -1,8 +1,22 @@
 # Galaxy 실제 게임 등록·실행 안내
 
-2026-11-09 / Phase 9-2. 앱 0.5.0 및 기존 `phase7-runtime-1` 표기는 유지하며, 실험 진단은 `engine.reboot.revision=phase9-2-reboot-1`로 구별한다.
+2026-11-09 / Phase 9-3 추가. 앱 0.5.0 및 기존 `phase7-runtime-1` 표기는 유지하며, 실험 진단은 `engine.reboot.revision=phase9-2-reboot-1`로 구별한다.
 
-## Phase 9-2: BIOS 재부팅 원인 수집
+## Phase 9-3: Reset Vector 직전 CPU 이력 (이번 시험)
+
+기존 Phase 9-2 엔진과 안정 엔진을 보존했다. **게임 실행 성공과 원인은 아직 미검증**이다. 재등록·사이트 데이터 삭제 없이 아래 순서로 수집한다.
+
+1. 사용자가 새 소스와 docs/ed4를 GitHub Desktop에서 Commit/Push한다. 기존 탭/PWA를 닫고 온라인으로 다시 열어 업데이트한다. Codex는 업로드하지 않았다.
+2. 기존 프로필 → 설정 · 백업 → BAT 실행 순서 · 임시 진단을 연다. GAME.BAT, CPU·메모리·사운드·RAW는 기존 실패 조건을 유지한다. 비교는 기존 수동 진단을 사용한다.
+3. 이번 진단의 엔진에서 **실험: Phase 9-3 CPU 실행 이력 · 저장 안 함**만 선택한다. 처음 열었을 때의 기본값은 계속 안정 엔진이다.
+4. 중단/오류가 관측되면 다음 실행 전 진단 JSON과 화면 PNG를 저장한다. BIOS의 원래 Aborted 오류는 남아 있으며 정상 종료/게임 성공이 아니다.
+5. JSON의 engine.artifact.id는 phase9-3, verification은 sha256-of-compiled-module, wasmSha256은 **a1bd86ba5cc2ca0f17b50bffdd334bea7980171913c1f74689d31e608ef1980b**여야 한다.
+6. engine.cpuHistory.history의 records(최대 128), execEntries(최대 8), trigger, rebootSequence와 기존 engine.reboot.events를 함께 전달한다. ED4.EXE entryObserved는 첫 주소의 실행 관측이며 초기화 성공이 아니다. history가 없으면 없는 그대로 보고한다.
+7. 진단 종료 (저장 안 함)으로 닫는다. 실험 선택과 생성/삭제 변경분은 저장하지 않으며 일반 게임 실행은 안정 엔진으로 돌아간다. 기존 RAW·세이브를 다시 선택할 필요가 없다.
+
+Galaxy 모델·Chrome 버전·오류까지 걸린 시간도 기록한다. 이번 엔진은 normal core 명령을 WASM 안에서 계측하므로 느려질 수 있다. 모바일 성능은 아직 측정하지 않았다. 게임/음악/세이브 파일이나 메모리 dump를 전송하지 않는다. 자세한 범위와 해석은 PHASE9_3_CPU_TRACE_REPORT.md를 참고한다.
+
+## 이전 Phase 9-2: BIOS 재부팅 원인 수집
 
 공개 시험은 통과했지만 **영웅전설4의 실제 재부팅 원인은 아직 미확정**이다. 이번 실험은 게임 오류를 고치거나 재부팅을 정상 종료로 바꾸지 않는다. 기존 게임·RAW·세이브를 다시 등록할 필요가 없다.
 

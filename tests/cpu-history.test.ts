@@ -1,0 +1,21 @@
+import {describe,it,expect} from 'vitest';
+import {cpuHistory,CpuHistory} from '../src/cpu-history';
+const state=()=>({cs:402,ip:256,linear:6688,csBase:6432,ss:402,flags:514,cr0:16,psp:402,mode:0,core:1});
+const row=()=>({sequence:10,epoch:0,kind:3,source:1,execId:2,rebootSequence:4,apiMask:2,interruptNumber:null,interruptType:0,complete:true,before:state(),after:{...state(),cs:65535,ip:0,linear:0xffff0,csBase:0xffff0}});
+const fixture=()=>({version:1,reason:1,rebootSequence:5,capacity:128,ringBytes:15360,storageBytes:17240,overwritten:100,instructions:200,trigger:row().after,records:[row()],execEntries:[{execId:2,mode:0,cs:402,ip:256,ss:402,sp:65534,psp:402,result:1,observed:true,program:'ED4TEST.COM',firstInstruction:row()}]});
+describe('bounded CPU history metadata',()=>{
+ it('keeps actual source and destination separate from loader preparation',()=>{const h=cpuHistory(fixture())!;expect(h.records[0].kind).toBe('retf');expect(h.records[0].before.ip).toBe(256);expect(h.trigger.ip).toBe(0);expect(h.execEntries[0].result).toBe('loader-prepared');expect(h.execEntries[0].entryObserved).toBe(true);});
+ it('strips arbitrary nested payloads',()=>{const f:any=fixture();f.save='secret';f.records[0].bytes=[1,2];f.records[0].before.memory='RAW';f.execEntries[0].file='secret';expect(JSON.stringify(cpuHistory(f))).not.toMatch(/secret|memory|"bytes"|RAW/);});
+ it.each([129,10000])('rejects %i rows before parsing',n=>{const f=fixture();f.records=Array(n).fill(row());expect(cpuHistory(f)).toBeUndefined();});
+ it('rejects more than 8 entry anchors',()=>{const f=fixture();f.execEntries=Array(9).fill(f.execEntries[0]);expect(cpuHistory(f)).toBeUndefined();});
+ it.each([-1,NaN,Infinity,0x100000000])('rejects invalid CPU integer %s',n=>{const f=fixture();f.records[0].before.ip=n;expect(cpuHistory(f)).toBeUndefined();});
+ it('rejects missing and incomplete states',()=>{const f:any=fixture();delete f.records[0].after;expect(cpuHistory(f)).toBeUndefined();f.records[0]=row();f.records[0].complete=false;expect(cpuHistory(f)).toBeUndefined();});
+ it('rejects duplicate and reversed sequence order',()=>{const f=fixture();f.records.push(row());expect(cpuHistory(f)).toBeUndefined();f.records[1].sequence=9;expect(cpuHistory(f)).toBeUndefined();});
+ it('accepts sequence wrap with incremented epoch',()=>{const f=fixture();f.records[0].sequence=0xffffffff;f.records.push({...row(),sequence:0,epoch:1});expect(cpuHistory(f)).toBeDefined();});
+ it('keeps host callback identifiers out of API masks',()=>{const f=fixture();f.records[0].source=3;f.records[0].kind=18;f.records[0].apiMask=7;const r=cpuHistory(f)!.records[0];expect(r.apiMask).toBeUndefined();expect(r.boundaryDetail).toBe(7);});
+ it('reports gaps and protected mode without inventing instructions',()=>{const f=fixture();f.records[0].source=3;f.records[0].kind=20;f.records[0].before.core=4;f.records[0].before.mode=1;expect(cpuHistory(f)!.records[0]).toMatchObject({kind:'core-gap-enter',before:{core:'full',mode:'protected'}});});
+ it('preserves unobserved loader entry as unobserved',()=>{const f:any=fixture();f.execEntries[0].observed=false;f.execEntries[0].firstInstruction=null;expect(cpuHistory(f)!.execEntries[0].entryObserved).toBe(false);});
+ it.each(['C:\\Users\\private\\ED4.EXE','/storage/token?x=1'])('rejects non-basename %s',s=>{const f=fixture();f.execEntries[0].program=s;expect(cpuHistory(f)).toBeUndefined();});
+ it('accepts only one complete snapshot and preserves it after invalid messages',()=>{const o=new CpuHistory();expect(o.report().history).toBeUndefined();o.accept(null);o.accept(fixture());o.accept(fixture());expect(o.report().rejected).toBe(2);expect(o.report().history?.records).toHaveLength(1);});
+ it('rejects wrong versions and fabricated layout sizes',()=>{const f=fixture();f.version=2;expect(cpuHistory(f)).toBeUndefined();f.version=1;f.storageBytes=42;expect(cpuHistory(f)).toBeUndefined();});
+});

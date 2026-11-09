@@ -1,0 +1,4 @@
+Experimental emulators 0.73.8 / DOSBox, GPL-2.0-or-later upstream files.
+Corresponding source: ../../../sources/emulators-0.73.8-phase9-3-source.zip
+Includes the full source, instrumentation, and BUILD.md.
+Stable engine remains ../../wdosbox.wasm; diagnostic engine only.

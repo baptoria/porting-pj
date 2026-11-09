@@ -19,6 +19,7 @@ for (const name of [
   "public/icon.svg",
   "public/dos-worker.js",
   "public/dos-worker-phase9-2.js",
+  "public/dos-worker-phase9-3.js",
   "public/licenses/NOTICE.html",
 ])
   await add(name);

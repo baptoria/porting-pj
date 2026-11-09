@@ -5,3 +5,8 @@
 # Reproduce WSL builds and native observation template bytes on Windows.
 /scripts/*.sh text eol=lf
 /scripts/phase9-2/* text eol=lf
+
+/docs/ed4/vendor/experimental/phase9-3/* -text
+/public/sources/emulators-0.73.8-phase9-3-source.zip -text
+/docs/ed4/sources/emulators-0.73.8-phase9-3-source.zip -text
+/scripts/phase9-3/* text eol=lf
