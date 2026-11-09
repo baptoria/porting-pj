@@ -1,6 +1,24 @@
 # Galaxy 실제 게임 등록·실행 안내
 
-2026-11-09 / Phase 6 Hotfix 2 (0.5.0 + phase6-hotfix2).
+2026-11-09 / Phase 7 (0.5.0 + phase7-runtime-1).
+
+## Phase 7: null function 스택 수집 우선
+
+Galaxy에서 Hotfix 2의 임시 진단이 작동하고 GAME.BAT 1·2행 반환, 3행 DRIVER 진입, LOADER/LOGO/RTM/ED4 실행 요청 후 `RuntimeError: null function`이 발생한 것은 사용자 실기 관측이다. 실행 요청은 프로그램 초기화 성공이 아니다. 실제 오류 함수와 원인은 아직 미확정이다.
+
+1. 사용자가 소스와 `docs/ed4/`를 GitHub Desktop으로 Commit·Push하고 Pages 완료를 확인한다. 기존 플레이는 정상 종료하고 모든 해당 탭/PWA를 닫은 뒤 온라인으로 다시 연다. 사이트 데이터와 이미 등록한 게임은 삭제하지 않는다.
+2. 기존 **설정 · 백업 → 실행 로그·진단 JSON 내보내기**에서 `diagnosticRevision=phase7-runtime-1`을 확인한다. 화면의 기존 PHASE 06 표시는 디자인 변경 없이 유지되므로 JSON 리비전으로 구별한다.
+3. 성공했던 폴더 등록 프로필을 선택한다. **BAT 실행 순서 · 임시 진단 → WASM 비교 진단 → 기준: GAME.BAT + SB16 + 기존 RAW 마운트**를 선택한다. 현재 CPU·메모리·prelude를 유지한다. 실행 파일과 설정은 비교 중 고정되며 실제 BAT 분석에 문제가 있으면 표시된 사유를 먼저 확인한다.
+4. **임시 진단 실행 (저장 안 함)**을 누른다. 오류가 표시되면 바로 **진단 JSON**, **화면 PNG**를 저장한다. Galaxy 모델·Chrome 버전·오류까지 기다린 시간을 기록한다. 오류 뒤 계속 키를 누르거나 새 실행으로 기록을 덮어쓰기 전에 파일을 내려받는다.
+5. **진단 종료 (저장 안 함)** 후 비교 **NOSOUND.BAT만 변경**을 선택한다. 같은 설치 폴더에 실제 파일이 있어야 하며 명령 순서를 확인한다. 카드 설정은 SB16 그대로여서 BAT만 비교한다. NOSOUND라는 이름만으로 무음 성공을 단정하지 않는다.
+6. 다시 종료하고 **RAW 마운트만 생략**으로 비교한다. GAME.BAT·SB16·CPU·메모리는 기준과 같다. OPFS 음악은 남아 있고 이 진단에서만 읽기 마운트를 생략한다. 음악 연결 자체가 없으면 유효한 RAW 유무 비교가 아니므로 JSON의 `mountedFiles`를 확인한다. 본체에 남은 RAW를 자동 삭제하지 않는다.
+7. 실행별 JSON을 기준/NOSOUND/RAW-생략으로 구별해 보관한다. 다음 실행을 시작하면 마지막 엔진 진단이 교체된다. 수동 진단에서 CPU·카드·BAT를 동시에 바꾸지 않는다. 세이브 보존을 위해 모든 비교는 임시 진단으로만 한다.
+
+JSON `engine.runtimeErrors.events`에서 첫 `worker-error` 또는 `unhandledrejection`의 `stack`, `filename`, `lineno`, `colno`, `wasmLocations`를 확인한다. `parent-error`는 부모 측 관측이며 내부 이벤트와 중복될 수 있다. `emscripten-abort`의 스택은 abort 훅에서 관측한 JS 경로다. 브라우저가 위치를 주지 않으면 비어 있을 수 있고 `stackAvailable=false`가 된다. 그런 경우에도 해당 JSON을 전달한다. 파일 원문·게임/RAW/세이브 내용·메모리 덤프는 수집하지 않으며, 공유 전 프로필 이름·DOS 상대 경로·프로그램 출력이 포함된 기존 로그는 확인한다.
+
+`bootTrace`와 `engine.execution.requests`를 함께 보되, 마지막 EXEC와 마지막 콜백만으로 원인을 확정하지 않는다. RAW를 빼고 오류가 사라져도 게임이 더 일찍 종료했다면 해결 증거가 아니다. 정상 시작 화면·조작·진행은 별도로 확인한다. 한글 깨짐도 별도 항목으로 기록한다. 상세 기술 설명은 `PHASE7_RUNTIME_REPORT.md`, `WASM_ERROR_ANALYSIS.md`에 있다.
+
+## 기존 등록·진단 기능 참고
 
 `@SOUNDRV.COM/U > NUL`의 붙은 스위치 분석을 수정한 버전이다. 기존 폴더 등록을 그대로 사용하고 GAME.BAT를 선택한다. 버튼이 여전히 비활성화되면 바로 위 **임시 진단 실행 불가**의 파일·행·원문을 확인한다. DRIVER 내부의 ED4 실행 요청은 진단 JSON `engine.execution.requests`에서 확인한다. 실제 요청 로그가 있어도 게임 로딩 성공을 의미하지 않는다. 자세한 절차는 PHASE6_HOTFIX2_REPORT.md를 참고한다.
 
@@ -55,4 +73,4 @@
 
 전달할 정보: Galaxy 모델, Chrome 버전, 선택 방식(폴더/ZIP), 표시된 실행 BAT/EXE, 실패 단계와 화면 메시지, 진단 JSON, 가능하면 오류 화면. 게임 원본·RAW·세이브는 공개 저장소에 올리지 않는다. 진단은 원본 파일 바이트를 포함하지 않지만 프로필 이름·상대 파일 경로·로그가 있으므로 전달 전 확인한다.
 
-현재 사용자 실기 확인: 기본 엔진, 실제 폴더 등록, GAME.BAT/사운드 초기화 메시지. 남은 항목: ZIP 무응답 발생 단계, 마지막 진입 명령과 실제 게임 진행, 한글·전투·저장·BGM/효과음·모드 및 실제 메모리/속도. 로컬 검증은 공개 DOS 프로그램과 합성 RAW만 사용했다.
+현재 사용자 실기 확인: 기본 엔진, 실제 폴더 등록, Hotfix 2 진단, GAME.BAT 1·2행 반환, DRIVER 진입과 내부 실행 요청, Worker null function 오류. 남은 항목: 실제 오류 스택·원인, ZIP 무응답 발생 단계, 게임 정상 진행, 한글·전투·저장·BGM/효과음·모드 및 실제 메모리/속도. 로컬 검증은 공개 DOS 프로그램·합성 RAW·독립 WASM 오류 fixture만 사용했다.

@@ -4,11 +4,42 @@
 let runtime;
 let music = [];
 const musicStats = { reads: 0, bytes: 0, largestRead: 0 };
+let runtimeStage = 'worker-script', adapterOperation = 'idle', errorCount = 0;
+const diagnosticSend = self.postMessage.bind(self);
+// Whitelist strings/numbers only. No rejection-object stringify or memory dump.
+function errorText(value, limit = 8192) {
+  if (typeof value !== 'string') return '';
+  return value.slice(0, limit * 2)
+    .replace(/(?:https?|file|blob):\/\/[^\s)]+/gi, url => {
+      if (/^file:/i.test(url)) return '[host-path]';
+      const clean = url.split(/[?#]/)[0];
+      return clean.slice(clean.lastIndexOf('/') + 1).replace(/^[^@]*@/, '');
+    })
+    .replace(/[A-Z]:[\\/](?:Users|home)[\\/][^\s)"']+|\/(?:Users|home|storage|sdcard|data\/user|private|tmp)\/[^\s)"']+/gi, '[host-path]')
+    .replace(/\b(?:Bearer\s+\S+|(?:token|api[_-]?key|authorization|password|secret)\s*[:=]\s*[^\s,;)]+)/gi, '[credential]')
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|AKIA[A-Z0-9]{16})\b/g, '[credential]')
+    .slice(0, limit);
+}
+function runtimeError(source, error, event) {
+  if (errorCount++ >= 16) return;
+  const property = key => { try { return error?.[key]; } catch { return undefined; } };
+  try {
+    diagnosticSend({name:'ed4-runtime-error', props:{source,
+      name:errorText(property('name'),128), message:errorText(property('message') || event?.message || (typeof error==='string'?error:'Non-Error rejection (payload omitted)'),2048),
+      stack:errorText(property('stack')),filename:errorText(event?.filename,512),lineno:event?.lineno,colno:event?.colno,
+      stage:runtimeStage,adapterOperation,wasmHeapBytes:runtime?.HEAPU8?.buffer?.byteLength,
+      musicMounted:music.length,musicReads:musicStats.reads,musicBytes:musicStats.bytes}});
+  } catch { /* Reporting cannot replace the original failure. */ }
+}
+self.addEventListener('error', event => runtimeError('worker-error',event.error,event));
+self.addEventListener('unhandledrejection', event => runtimeError('unhandledrejection',event.reason));
 self.addEventListener("message", (e) => {
   if (e.data?.name === "wc-install") music = e.data.props.ed4Music ?? [];
 });
 function mountMusic() {
+  runtimeStage = 'preRun';
   if (!music.length) return;
+  adapterOperation = 'mount';
   const FS = runtime.FS,
     reader = new FileReaderSync();
   FS.mkdirTree("/home/web_user");
@@ -51,6 +82,7 @@ function mountMusic() {
       allocate: deny,
       mmap: deny,
       read(_stream, buffer, offset, length, position) {
+        adapterOperation = 'raw-read';
         const amount = Math.max(0, Math.min(length, file.size - position));
         let done = 0;
         while (done < amount) {
@@ -70,6 +102,7 @@ function mountMusic() {
           );
           if (data.length !== n) throw Error("Music read incomplete");
         }
+        adapterOperation = 'raw-read-complete';
         return done;
       },
     };
@@ -88,9 +121,12 @@ function mountMusic() {
       },
     };
   }
+  adapterOperation = 'mount-complete';
 }
 const send = self.postMessage.bind(self);
 self.postMessage = function (message, transfer) {
+  if (message?.name === 'ws-ready') runtimeStage = 'running';
+  if (message?.name === 'ws-exit') runtimeStage = 'exited';
   if (message?.name === "ws-persist") {
     try {
       if (!runtime?.FS) throw Error("Filesystem unavailable");
@@ -132,10 +168,17 @@ self.postMessage = function (message, transfer) {
   }
   return send(message, transfer);
 };
+runtimeStage = 'import-engine';
 importScripts("./vendor/wdosbox.js");
 const originalFactory = WDOSBOX;
 WDOSBOX = function (options) {
+  runtimeStage = 'factory';
   runtime = options;
+  const priorAbort = options.onAbort;
+  options.onAbort = reason => {
+    runtimeError('emscripten-abort',new Error(typeof reason==='string'?reason:'Emscripten abort'));
+    if (priorAbort) priorAbort(reason);
+  };
   options.locateFile = (path) =>
     new URL("./vendor/" + path, self.location.href).href;
   const prior = options.preRun;
@@ -143,5 +186,8 @@ WDOSBOX = function (options) {
     ...(typeof prior === "function" ? [prior] : (prior ?? [])),
     mountMusic,
   ];
-  return originalFactory(options);
+  try {
+    const result = originalFactory(options);
+    return result.catch(error => { runtimeError('factory-rejection',error); throw error; });
+  } catch (error) { runtimeError('factory-exception',error); throw error; }
 };

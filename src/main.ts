@@ -48,6 +48,7 @@ import { inspectGame } from "./file-analysis";
 import { installSimpleImport } from "./simple-import-ui";
 import { importTrace } from './import-trace';
 import { bootPlan, BootTrace } from './boot-trace';
+import { runtimeComparison, type ComparisonMode } from './runtime-comparison';
 import type { Files, DosSettings } from './model';
 
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
@@ -84,7 +85,7 @@ let lastEngineMetrics: ReturnType<DosEngine["diagnostics"]> | undefined;
 let lastError = "";
 let diagnosticRun=false;
 let bootTrace:BootTrace|undefined;
-let bootSettings:{profileId:string;original:DosSettings;comparison:DosSettings;config:string}|undefined;
+let bootSettings:{profileId:string;original:DosSettings;comparison:DosSettings;config:string;runtimeComparison?:{mode:ComparisonMode;entry:string;rawMounted:boolean;mountedFiles:number;baselineEntry?:string;changedFactor?:string}}|undefined;
 
 $("#app").innerHTML = `
 <header class="topbar"><a class="brand" href="./"><span class="brand-mark">E<span>4</span></span><span>ED4 <b>MOBILE</b><small>PERSONAL DOS LIBRARY</small></span></a><div class="header-right"><span class="phase">PHASE 02</span><span id="offline" class="badge">온라인 준비</span><button id="install" class="quiet">앱 설치</button></div></header>
@@ -352,10 +353,10 @@ async function diagnostic() {
     }),
     logs: [...logs],
     appVersion: "0.5.0",
-    diagnosticRevision: 'phase6-hotfix2',
+    diagnosticRevision: 'phase7-runtime-1',
     runStage: $("#run-state").textContent,
     lastError,
-    verification: "Galaxy DOSBox 및 GAME.BAT/사운드 초기화 메시지까지 사용자 확인. 이후 검은 화면. 실제 ED4 정상 진행은 미확인. 500MB ZIP 시간 초과, 동일 게임 폴더 등록 성공은 사용자 관측.",
+    verification: "Galaxy Hotfix 2 진단 작동 확인. GAME.BAT 1·2행 반환, 3행 DRIVER 진입 후 LOADER/LOGO/RTM/ED4 EXEC 요청 및 Worker RuntimeError: null function 사용자 관측. 요청은 초기화 성공이 아니며 실제 게임 정상 진행은 미확인. 500MB ZIP 시간 초과, 폴더 등록 성공.",
   };
 }
 on("#inspect-profile", async () => {
@@ -380,6 +381,8 @@ on("#export-diagnostics", async () => {
       importTrace: importTrace(),
       bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
       bootSettings,
+      engine:engine?.diagnostics()??lastEngineMetrics,
+      appVersion:'0.5.0',diagnosticRevision:'phase7-runtime-1',
       logs,
       error: storageError(error),
     };
@@ -696,7 +699,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string}) {
   idle();
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
@@ -707,6 +710,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
   let p = current();
   diagnosticRun=!!traceOptions;
   bootTrace=undefined;bootSettings=undefined;
+  lastEngineMetrics=undefined;
   $('#trace-status').textContent=diagnosticRun?'진단 마커 대기':'';
   logs.length = 0;
   $('#logs').textContent='엔진 시작 대기';
@@ -734,7 +738,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
       return;
     }
     activeSourcePaths = Object.keys(layerFiles(p, input));
-    const mountedMusic = await musicMounts(p, layerFiles(p, input), save);
+    const mountedMusic = traceOptions?.rawMounted===false?[]:await musicMounts(p, layerFiles(p, input), save);
     const inspection = inspectGame(layerFiles(p, input));
     if (inspection.windowsExecutables.includes(p.executable))
       throw Error(
@@ -750,7 +754,8 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
       bootTrace=new BootTrace(plan);
       p={...p,executable:plan.executable,settings:{...traceOptions.settings,prelude:''}};
       temporary=plan.generated;
-      bootSettings={profileId:current().id,original:{...current().settings},comparison:{...traceOptions.settings},config:dosConfig(p)};
+      bootSettings={profileId:current().id,original:{...current().settings},comparison:{...traceOptions.settings},config:dosConfig(p),
+        runtimeComparison:{mode:traceOptions.mode??'manual',entry:traceOptions.entry,rawMounted:traceOptions.rawMounted!==false,mountedFiles:mountedMusic.length,baselineEntry:traceOptions.baselineEntry,changedFactor:traceOptions.changedFactor}};
     }
     const bundle = await buildRuntime(p, input, save, temporary);
     await engine.start(bundle, mountedMusic);
@@ -764,6 +769,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings}) {
     $('#stop').textContent=diagnosticRun?'진단 종료 (저장 안 함)':'저장 후 종료';
     status(diagnosticRun?'임시 진단 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
   } catch (e) {
+    lastEngineMetrics=engine?.diagnostics(); // Retain early WASM failures after cleanup.
     await engine?.stop();
     engine = undefined;
     diagnosticRun=false;
@@ -1454,6 +1460,8 @@ $('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">
 $('#play-area').insertAdjacentHTML('afterbegin','<div id="trace-status" role="status"></div>');
 $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="dialog-heading"><h2>임시 실행 추적</h2><button id="boot-close">닫기</button></div>
 <p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
+<label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option></select></label>
+<p>WASM 비교 3종은 현재 CPU·메모리를 유지하고 동일 SB16을 사용합니다. 기준 결과부터 수집하고 한 번에 BAT 또는 RAW 마운트 하나만 비교하세요. RAW 생략은 OPFS 연결 음악에만 적용되며 본체 파일을 삭제하지 않습니다. NOSOUND의 실제 명령 순서를 먼저 확인하세요.</p>
 <label>실제 등록된 실행 파일<select id="boot-entry"></select></label>
 <p>NOSOUND.BAT가 있을 때 아래 실제 명령 순서를 먼저 확인하고 비교하세요. 이름만으로 무음 동작을 보장하지 않습니다. 한글 로더·CD 필요 여부는 참조 증거로만 판단합니다.</p>
 <pre id="boot-analysis"></pre>
@@ -1465,6 +1473,21 @@ $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="d
 $('#run-diagnostics').onclick=()=>$('#export-diagnostics').click();
 $('#boot-close').onclick=()=>$<HTMLDialogElement>('#boot-dialog').close();
 let bootFiles:Files={};
+function selectedComparison(){
+  const mode=$<HTMLSelectElement>('#boot-comparison').value as ComparisonMode;
+  return mode==='manual'?undefined:runtimeComparison(mode,bootFiles,current().executable,current().settings);
+}
+$('#boot-comparison').onchange=()=>{
+  try{
+    const comparison=selectedComparison(),p=current();
+    for(const id of ['#boot-entry','#boot-cycles','#boot-memory','#boot-sound'])$<HTMLInputElement>(id).disabled=!!comparison;
+    $<HTMLSelectElement>('#boot-entry').value=comparison?.entry??p.executable;
+    $<HTMLInputElement>('#boot-cycles').value=String(p.settings.cycles);
+    $<HTMLSelectElement>('#boot-memory').value=String(p.settings.memory);
+    $<HTMLSelectElement>('#boot-sound').value=comparison?.settings.sound??p.settings.sound;
+    showBootAnalysis();
+  }catch(e){$('#boot-block-reason').textContent=String(e);$<HTMLButtonElement>('#boot-start').disabled=true;}
+};
 function showBootAnalysis(){
   const plan=bootPlan(bootFiles,$<HTMLSelectElement>('#boot-entry').value,current().settings.prelude);
   $('#boot-analysis').textContent=plan.steps.map(s=>`${s.id}. ${s.batch}:${s.line} [${s.category}] ${s.command}${s.afterExpected?'':' (BAT 연결: 반환 마커 없음)'}`).join('\n')+
@@ -1487,14 +1510,17 @@ on('#boot-open',async()=>{
   $<HTMLInputElement>('#boot-cycles').value=String(p.settings.cycles);
   $<HTMLSelectElement>('#boot-memory').value=String(p.settings.memory);
   $<HTMLSelectElement>('#boot-sound').value=p.settings.sound;
+  $<HTMLSelectElement>('#boot-comparison').value='manual';
+  for(const id of ['#boot-entry','#boot-cycles','#boot-memory','#boot-sound'])$<HTMLInputElement>(id).disabled=false;
   showBootAnalysis();$<HTMLDialogElement>('#boot-dialog').showModal();
 });
 on('#boot-start',async()=>{
   const entry=$<HTMLSelectElement>('#boot-entry').value;
   const settings:DosSettings={...current().settings,cycles:Number($<HTMLInputElement>('#boot-cycles').value),memory:Number($<HTMLSelectElement>('#boot-memory').value),sound:$<HTMLSelectElement>('#boot-sound').value as DosSettings['sound']};
   dosConfig({...current(),settings}); // validate before closing or starting
+  const comparison=selectedComparison();
   $<HTMLDialogElement>('#boot-dialog').close();bootFiles={};
-  await startGame({entry,settings});
+  await startGame(comparison??{entry,settings,mode:'manual'});
 });
 on('#screen-export',async()=>{
   const blob=await new Promise<Blob|null>(resolve=>$<HTMLCanvasElement>('#canvas').toBlob(resolve,'image/png'));

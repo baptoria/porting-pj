@@ -7,6 +7,7 @@ import type { Snapshot } from "./model";
 import { readZip } from "./archive";
 import type { MusicMount } from "./music";
 import { DosObservation } from './dos-observation';
+import { RuntimeErrors, diagnosticText } from './runtime-errors';
 declare global {
   interface Window {
     emulators: Emulators;
@@ -59,6 +60,7 @@ export class DosEngine implements Engine {
   readonly metrics = { frames: 0, audioSamples: 0 };
   private startedAt = performance.now();
   private observation=new DosObservation();
+  private runtimeErrors=new RuntimeErrors();
   musicMetrics?: {
     reads: number;
     bytes: number;
@@ -75,6 +77,8 @@ export class DosEngine implements Engine {
       paused: this.paused,
       music: this.musicMetrics,
       execution: this.observation.report(),
+      runtimeErrors:this.runtimeErrors.report(),
+      artifact:{emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'},
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -99,6 +103,8 @@ export class DosEngine implements Engine {
   async start(bundle: Uint8Array, music: MusicMount[] = []) {
     this.startedAt = performance.now();
     this.observation=new DosObservation();
+    this.runtimeErrors=new RuntimeErrors();
+    this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
@@ -107,8 +113,17 @@ export class DosEngine implements Engine {
     ));
     const sessionId = crypto.randomUUID();
     let handler: MessageHandler | undefined;
+    let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-runtime-error'){
+        const source=['worker-error','unhandledrejection','factory-rejection','factory-exception','emscripten-abort'].includes(event.data.props?.source)?event.data.props.source:'worker-report';
+        const failure=this.runtimeErrors.record(source,event.data.props);
+        const message=`DOS Worker 오류 (${source}): ${failure.message}`;
+        this.observation.error(message);this.log(message);
+        rejectStartup?.(new Error(message));
+        return; // Diagnostic side channel is not part of the js-dos protocol.
+      }
       this.observation.observe(event.data.name,event.data.props);
       if (event.data.name === "ws-persist") {
         this.snapshotInfo = event.data.props.ed4Snapshot;
@@ -146,6 +161,7 @@ export class DosEngine implements Engine {
     });
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     const failed = new Promise<never>((_, reject) => {
+      rejectStartup=reject;
       startupTimer = setTimeout(
         () =>
           reject(
@@ -156,7 +172,8 @@ export class DosEngine implements Engine {
         30000,
       );
       worker.onerror = (e) => {
-        const message=`DOS Worker 오류: ${e.message}`;
+        this.runtimeErrors.record('parent-error',{name:e.error?.name,message:e.message,stack:e.error?.stack,filename:e.filename,lineno:e.lineno,colno:e.colno});
+        const message=`DOS Worker 오류: ${diagnosticText(e.message,2048)}`;
         this.observation.error(message);this.log(message);
         reject(new Error(message));
       };
