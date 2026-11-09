@@ -135,8 +135,9 @@ test('body deletion retains save and reconnect/backup recovery keeps one-click l
 test('simple launch at mobile landscape keeps multitouch and settings out of the initial view',async({page},info)=>{
  await page.setViewportSize({width:844,height:390});await ready(page);await expect(page.locator('#advanced-settings')).not.toHaveAttribute('open');
  await upload(page,'mobile.zip',await fixture(false));await registered(page,'mobile');await start(page);
- await page.locator('.up').dispatchEvent('pointerdown',{pointerId:1,pointerType:'touch',isPrimary:true});await page.locator('#confirm-key').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',isPrimary:false});
- await page.locator('.up').dispatchEvent('pointerup',{pointerId:1,pointerType:'touch'});await page.locator('#confirm-key').dispatchEvent('pointerup',{pointerId:2,pointerType:'touch'});
+ const joystick=(await page.locator('#direction-pad .up').boundingBox())!;
+ await page.locator('#direction-pad .up').dispatchEvent('pointerdown',{pointerId:1,pointerType:'touch',isPrimary:true,clientX:joystick.x+joystick.width/2,clientY:joystick.y+joystick.height*.1});await page.locator('#confirm-key').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',isPrimary:false});
+ await page.locator('#direction-pad .up').dispatchEvent('pointerup',{pointerId:1,pointerType:'touch'});await page.locator('#confirm-key').dispatchEvent('pointerup',{pointerId:2,pointerType:'touch'});
  await expect(page.locator('#logs')).toContainText('KEY RECEIVED');await page.screenshot({path:info.outputPath('simple-landscape.png')});await save(page);
  await advanced(page);await page.locator('#control-opacity').fill('65');await page.locator('#control-opacity').dispatchEvent('input');await page.reload();await expect(page.locator('#control-opacity')).toHaveValue('65');
  await start(page);await page.keyboard.press('l');await expect(page.locator('#logs')).toContainText('ED4_SAVE_OK');await stop(page);

@@ -196,14 +196,15 @@ test("landscape fallback, portrait advice, multitouch and adjustable controls", 
   await expect(page.locator("#logs")).toContainText("방향 잠금");
   await expect(page.locator("#run-state")).toHaveText("실행 중");
   await page.setViewportSize({ width: 844, height: 390 });
+  const joystick=(await page.locator("#direction-pad .up").boundingBox())!;
   await page
-    .locator('[aria-label="위"]')
-    .dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch" });
+    .locator("#direction-pad .up")
+    .dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch",clientX:joystick.x+joystick.width/2,clientY:joystick.y+joystick.height*.1 });
   await page
     .locator("#confirm-key")
     .dispatchEvent("pointerdown", { pointerId: 2, pointerType: "touch" });
   await page
-    .locator('[aria-label="위"]')
+    .locator("#direction-pad .up")
     .dispatchEvent("pointercancel", { pointerId: 1 });
   await page
     .locator("#confirm-key")
@@ -215,6 +216,7 @@ test("landscape fallback, portrait advice, multitouch and adjustable controls", 
     ),
   ).toBeTruthy();
   await page.screenshot({ path: info.outputPath("landscape.png") });
+  await page.locator("#player-menu").click();
   await stop(page);
   await page.locator("#control-opacity").fill("60");
   await page.locator("#control-y").fill("10");

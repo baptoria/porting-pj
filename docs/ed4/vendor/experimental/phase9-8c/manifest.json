@@ -1,0 +1,57 @@
+{
+  "id": "phase9-8c",
+  "emulators": "0.73.8",
+  "emscripten": "3.1.21",
+  "files": {
+    "wdosbox.js": {
+      "sha256": "f4d11b21ca5d932ee0a3a6e607c499bea62e417d06b118eb5b6e58939a8d4f53",
+      "bytes": 126818
+    },
+    "wdosbox.wasm": {
+      "sha256": "d7478cb33e9e8a575f5c22789f69f243365aff3fc77543adf5f99cd013994eee",
+      "bytes": 1465538
+    },
+    "wdosbox.js.symbols": {
+      "sha256": "4331671ddba5241f377a11e4de97bf3da32468389871e8dd5eea3c55f82c72cf",
+      "bytes": 239875
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    "DOSBOX-COPYING": {
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374",
+      "bytes": 17995
+    },
+    "SOURCE.txt": {
+      "sha256": "5ee30c47c8831c6d7555c37142d50f424b3d0a5ed412c84085eb05abfbb043c3",
+      "bytes": 200
+    }
+  },
+  "changes": {
+    "baseSourceSha256": "26d14da06eed3d038d72e0e9d259effb677d3bd46d6d70c2d4e416ac901543bf",
+    "changes": [
+      {
+        "path": "native/dosbox/src/cpu/cpu.cpp",
+        "before": "08a5df9f845f32e8f7004d21afe0a2fe7fc3b304a392b4ecbdd4cb369366e8a9",
+        "after": "4f698901e139bb0b45e892aed1f59dc84f99191ec1a5c1bd5611687da34d2098"
+      },
+      {
+        "path": "native/dosbox/src/dos/dos.cpp",
+        "before": "c300592780a4692abc457895fdc4dd592198c479c46d49d1a69811975dff55d6",
+        "after": "b283c1c105d789449d6501f992a6673815db383a9a5054f8d32b5f21b1e46d19"
+      },
+      {
+        "path": "native/dosbox/include/ed4_bgm.h",
+        "before": null,
+        "after": "7c9e0f0d10e76fdf7030c52563609d5f385af02f9d8d8f555970f65b3fd37802"
+      },
+      {
+        "path": "native/dosbox/src/cpu/ed4_bgm.inc",
+        "before": null,
+        "after": "0b7fe06372f9275c5ea1311e1d66373525c2354daeda2f90f4c49020c02fb453"
+      }
+    ]
+  },
+  "sourceZipSha256": "6967853a365567785447ff4d0ec1fe9e6536551090f98ca82814a4e0fd7c268b"
+}

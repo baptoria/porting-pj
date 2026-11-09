@@ -36,3 +36,21 @@
 # Phase 9-7 reuses the exact 9-6 common Worker and WASM.
 /public/dos-worker-*phase9-7*.js -text
 /docs/ed4/dos-worker-*phase9-7*.js -text
+
+# Event observer artifacts and their byte-hashed generation inputs.
+/docs/ed4/vendor/experimental/phase9-8c/* -text
+/public/sources/emulators-0.73.8-phase9-8c-source.zip -text
+/docs/ed4/sources/emulators-0.73.8-phase9-8c-source.zip -text
+/public/dos-worker-*phase9-8c*.js -text
+/docs/ed4/dos-worker-*phase9-8c*.js -text
+/scripts/phase9-8c-worker-query.js -text
+/scripts/phase9-8c-trace.inc -text
+
+# Phase9-8D preserves immutable artifacts across Windows checkouts.
+/docs/ed4/vendor/experimental/phase9-8d/* -text
+/public/sources/emulators-0.73.8-phase9-8d-source.zip -text
+/docs/ed4/sources/emulators-0.73.8-phase9-8d-source.zip -text
+/public/dos-worker-*phase9-8d*.js -text
+/docs/ed4/dos-worker-*phase9-8d*.js -text
+/scripts/phase9-8d-worker-query.js -text
+/scripts/phase9-8d-trace.inc -text

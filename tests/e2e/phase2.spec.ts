@@ -96,7 +96,9 @@ test("exact ZIP hash mismatch, requirements, BAT and diagnostic export", async (
   await page.locator("#required-version").fill("wrong-version");
   await page.locator("#settings-form button[type=submit]").click();
   await page.locator("#play").click();
-  await expect(page.locator("#status")).toContainText("요구 원본 버전 불일치");
+  await expect(page.locator("#logs")).toContainText("실행을 허용");
+  await expect(page.locator("#logs")).toContainText("ED4 TEST READY");
+  await stop(page);
   await page.locator("#edit-profile").click();
   await page.locator("#required-version").fill("");
   await page.locator("#settings-form button[type=submit]").click();
@@ -111,9 +113,8 @@ test("exact ZIP hash mismatch, requirements, BAT and diagnostic export", async (
     mimeType: "application/zip",
     buffer: Buffer.from(zipSync({ "START.BAT": strToU8("echo different") })),
   });
-  await expect(page.locator("#status")).toContainText("해시 불일치");
-  await expect(page.locator("[data-relink]")).toHaveCount(1);
-  await page.locator("[data-relink]").click();
+  await expect(page.locator("[data-relink]")).toHaveCount(0);
+  await page.locator("[data-verify]").click();
   await page.locator("#relink-file").setInputFiles("public/test-program.zip");
   await expect(page.locator("[data-relink]")).toHaveCount(0);
   await page.locator("[data-close=storage-dialog]").click();

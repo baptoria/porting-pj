@@ -31,33 +31,31 @@ export function migrateProfile(profile: Profile, archives: Archive[]): Profile {
 export function checkIdentity(
   expected: Identity | undefined,
   actual: Archive,
-): "matched" | "unverified" {
+): "matched" | "different" | "unverified" {
   if (
     expected?.manifestSha256 &&
     expected.manifestSha256 !== actual.manifestSha256
   )
-    throw new Error(
-      "원본 폴더 manifest SHA-256 해시 불일치. 기존 연결을 보존합니다.",
-    );
+    return "different";
   if (expected?.sha256 && expected.sha256 !== actual.sha256)
-    throw new Error(
-      `원본 ZIP SHA-256 해시 불일치: ${actual.name}. 기존 연결을 보존합니다. 다른 ZIP은 별도 프로필로 등록하세요.`,
-    );
+    return "different";
   return expected?.sha256 || expected?.manifestSha256
     ? "matched"
     : "unverified";
 }
 export function checkRequirements(p: Profile, archives: Archive[]) {
-  for (const a of archives) checkIdentity(p.archiveIdentities?.[a.id], a);
+  const notes:string[]=[];
+  for (const a of archives) if(checkIdentity(p.archiveIdentities?.[a.id], a)==='different')
+    notes.push(`${a.name}: 등록 당시 해시와 다릅니다. 사용자 수정본일 수 있으며 실행을 허용합니다.`);
   const base = archives.find((a) => a.id === p.baseId);
   if (!base) throw new Error("원본 ZIP이 없습니다.");
+  if(p.patchIds.some(id=>!archives.some(a=>a.id===id)))throw Error('연결된 모드 파일이 없습니다.');
   if (
     p.requiredBaseVersion &&
     p.requiredBaseVersion !== identity(base).versionId
   )
-    throw new Error(
-      `모드 요구 원본 버전 불일치: 요구 ${p.requiredBaseVersion}, 현재 ${identity(base).versionId}`,
-    );
+    notes.push(`모드 참고 버전과 다릅니다: 참고 ${p.requiredBaseVersion}, 현재 ${identity(base).versionId}. 수정본 실행을 허용합니다.`);
+  return notes;
 }
 export function validateIdentities(
   value: unknown,

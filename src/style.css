@@ -1036,3 +1036,41 @@ body:not(.running) .player-toolbar { order:-1; border-bottom:1px solid var(--lin
 @media (orientation:landscape) and (max-height:600px) {
   body.running #advanced-settings, body.running .simple-summary { display:none; }
 }
+/* Phase 9-8: controls overlay the framebuffer; no reserved side panels. */
+#play-area .screen { position:relative; }
+#play-area #touch-controls { position:absolute; inset:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-right,0px) + 8px) calc(env(safe-area-inset-bottom,0px) + 8px) calc(env(safe-area-inset-left,0px) + 8px); display:block; padding:0; border:0; background:none; opacity:1; pointer-events:none; z-index:4; }
+#direction-pad { position:absolute; display:grid; grid-template:repeat(3,1fr)/repeat(3,1fr); gap:2px; touch-action:none; user-select:none; pointer-events:none; }
+#direction-pad button { min-width:0; min-height:0; margin:0; padding:0; border:2px solid white; border-radius:20%; background:#15212d; color:white; font-size:clamp(16px,4vmin,24px); opacity:var(--play-opacity,.35); touch-action:none; pointer-events:auto; }
+#direction-pad button.pressed { opacity:var(--play-active-opacity,.65); background:#49647b; }
+#direction-pad .up { grid-area:1/2; } #direction-pad .left { grid-area:2/1; } #direction-pad .right { grid-area:2/3; } #direction-pad .down { grid-area:3/2; }
+#play-area .action-pad { position:absolute; display:flex; padding:0; }
+#play-area .action-pad button { display:grid; place-content:center; width:var(--action-size,72px); height:var(--action-size,72px); min-width:0; min-height:0; margin:0; padding:0; border:2px solid white; border-radius:50%; background:#15212d; color:white; font-size:clamp(12px,2.8vmin,18px); opacity:var(--play-opacity,.35); pointer-events:auto; touch-action:none; user-select:none; }
+#play-area .action-pad button.pressed { opacity:var(--play-active-opacity,.65); background:#49647b; }
+#play-area .action-pad small[hidden], #menu-key[hidden] { display:none; }
+#game-tools { display:none; position:absolute; inset:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-right,0px) + 8px) auto calc(env(safe-area-inset-left,0px) + 8px); z-index:8; justify-content:space-between; pointer-events:none; }
+#game-tools button { pointer-events:auto; min-width:44px; min-height:40px; padding:6px 12px; background:#14202bd9; border:1px solid #ffffff70; color:#fff; }
+#speed-toggle:disabled { opacity:.45; cursor:not-allowed; }
+#speed-toggle[aria-pressed=true] { background:#aa781c; border-color:#ffd16d; }
+#immersive-close { display:none; }
+#speed-limit { font-size:12px; width:100%; padding:8px; color:#f3d7a4; }
+#play-ui-dialog { max-height:85dvh; width:min(440px,90vw); overflow:auto; }
+#play-ui-dialog label { display:block; margin:10px 0; }
+#play-ui-dialog input[type=range] { display:block; width:100%; }
+#play-ui-dialog output { float:right; }
+#play-area[data-fit=contain] canvas { object-fit:contain; }
+#play-area[data-fit=fill] canvas { object-fit:fill; }
+#play-area.immersive { position:fixed; inset:0; width:100%; height:100dvh; max-height:none; z-index:1000; display:block; padding:0; border:0; border-radius:0; background:#000; }
+#play-area.immersive .screen-frame { position:absolute; inset:0; width:100%; height:100%; min-height:0; margin:0; padding:0; border:0; border-radius:0; }
+#play-area.immersive .screen { width:100%; height:100%; min-height:0; margin:0; border:0; border-radius:0; background:#000; }
+#play-area.immersive canvas { display:block; width:100%; height:100%; max-height:none; }
+#play-area.immersive .screen-top { display:none; }
+#play-area.immersive #game-tools { display:flex; }
+#play-area.immersive .player-toolbar { display:none; }
+#play-area.immersive.menu-open .player-toolbar { position:absolute; z-index:9; left:max(8px,env(safe-area-inset-left)); right:max(8px,env(safe-area-inset-right)); top:calc(env(safe-area-inset-top,0px) + 58px); display:flex; flex-wrap:wrap; gap:8px; height:auto; max-height:65dvh; overflow:auto; padding:12px; background:#15212df5; }
+#play-area.immersive #immersive-close { display:block; }
+#play-area.immersive #session-notice { display:none; }
+#play-area.immersive #rotate-notice { position:absolute; z-index:6; top:calc(env(safe-area-inset-top,0px) + 58px); left:15%; right:15%; text-align:center; background:#17252bcc; pointer-events:none; }
+#play-area.immersive .virtual-keyboard { position:absolute; z-index:10; left:5%; right:5%; bottom:0; max-height:45dvh; overflow:auto; }
+@media (orientation:landscape) and (max-height:600px) {
+ body.running #play-area:not(.immersive) .screen-frame { margin:0; }
+}

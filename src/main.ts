@@ -33,6 +33,7 @@ import { buildRuntime } from "./runtime-builder";
 import { measurements, record } from "./telemetry";
 import { PRESETS } from "./presets";
 import { DosEngine } from "./engine";
+import {installPlayUi} from "./play-ui";
 import { bindControls, KEY } from "./controls";
 import { importGameZip, importSources } from "./source-import";
 import {
@@ -94,8 +95,8 @@ $("#app").innerHTML = `
 <main class="workspace">
 <aside class="library"><div class="section-heading"><span class="eyebrow">내 라이브러리</span><span id="profile-count">00</span></div><h1>오래된 모험,<br>새로운 화면.</h1><p class="intro">구영웅전설4 · DOS 에디션<br>내 파일로 만드는 나만의 실행 공간</p><button id="open-import" class="primary wide">＋ 게임 / 모드 등록</button><nav id="profiles" aria-label="실행 프로필"></nav><button id="demo" class="demo"><span>◇</span><div>먼저 실행 환경 확인하기<small>공개 DOS 테스트 프로그램</small></div><span>↗</span></button><div class="library-bottom"><span class="small-label">LOCAL FIRST</span><p>게임 파일은 이 브라우저에만 저장됩니다.<br>게임 원본은 제공하지 않습니다.</p><button id="storage-open" class="quiet">저장 공간 관리 ↗</button></div></aside>
 <section class="main-panel"><div class="title-row"><div><span id="profile-kind" class="eyebrow">실행 준비</span><h2 id="profile-title">모험을 준비하세요</h2></div><span class="engine-chip">js-dos <b>v7</b></span></div>
-<div id="play-area" class="play-area"><div class="screen-frame"><div class="screen-top"><span class="led"></span><span id="screen-label">DOS DISPLAY</span><span id="run-state">대기 중</span></div><div class="screen"><canvas id="canvas" width="640" height="400" tabindex="0" aria-label="DOS 실행 화면"></canvas><div id="empty-screen"><span class="pixel-emblem">Ⅳ</span><h3>당신의 모험을 이어서</h3><p>보유한 게임 ZIP을 등록하거나<br>공개 테스트 프로그램으로 시작하세요.</p><span class="screen-footnote">구영웅전설4 실행은 원본 확보 후 검증 예정</span></div></div></div>
-<div id="touch-controls" class="touch-controls"><div class="dpad"><button data-key="265" class="up" aria-label="위">↑</button><button data-key="263" class="left" aria-label="왼쪽">←</button><span>＋</span><button data-key="262" class="right" aria-label="오른쪽">→</button><button data-key="264" class="down" aria-label="아래">↓</button></div><div class="action-pad"><button id="menu-key" data-key="32">메뉴<small>Space</small></button><button id="cancel-key" data-key="256">취소<small>Esc</small></button><button id="confirm-key" data-key="257" class="confirm-key">확인<small>Enter</small></button></div></div>
+<div id="play-area" class="play-area"><div class="screen-frame"><div class="screen-top"><span class="led"></span><span id="screen-label">DOS DISPLAY</span><span id="run-state">대기 중</span></div><div class="screen"><canvas id="canvas" width="640" height="400" tabindex="0" aria-label="DOS 실행 화면"></canvas><div id="empty-screen"><span class="pixel-emblem">Ⅳ</span><h3>당신의 모험을 이어서</h3><p>보유한 게임 ZIP을 등록하거나<br>공개 테스트 프로그램으로 시작하세요.</p><span class="screen-footnote">Galaxy 원본 실행·한글·오디오 확인 · 저장 실기 검증 필요</span></div></div></div>
+<div id="touch-controls" class="touch-controls"><div id="direction-pad" role="group" aria-label="4방향 버튼"><button class="up" data-key="265" aria-label="위">↑</button><button class="left" data-key="263" aria-label="왼쪽">←</button><button class="right" data-key="262" aria-label="오른쪽">→</button><button class="down" data-key="264" aria-label="아래">↓</button></div><div class="action-pad"><button id="cancel-key" data-key="256" aria-label="ESC">ESC<small hidden>Esc</small></button><button id="confirm-key" data-key="257" aria-label="Enter">Enter<small hidden>Enter</small></button></div><button id="menu-key" data-key="32" hidden>메뉴<small>Space</small></button></div>
 <div class="player-toolbar"><button id="play" class="primary">▶ 실행</button><button id="pause">일시 정지</button><button id="stop">저장 후 종료</button><span class="toolbar-spacer"></span><button id="keyboard-toggle" aria-expanded="false">키보드</button><button id="fullscreen">전체 화면 ⛶</button></div>
 <div id="virtual-keyboard" class="virtual-keyboard" hidden></div></div>
 <div id="status" role="status" aria-live="polite">게임 원본 없이도 공개 테스트 프로그램으로 실행 환경을 확인할 수 있습니다.</div>
@@ -109,8 +110,8 @@ $("#app").innerHTML = `
 <input id="recover-file" type="file" accept=".zip" hidden><input id="patch-file" type="file" accept=".zip" hidden><input id="restore-file" type="file" accept=".zip" hidden><input id="relink-file" type="file" accept=".zip" hidden>
 `;
 
-$(".phase").textContent = "PHASE 06 · 진단";
-$("footer span").textContent = "ED4 MOBILE / PHASE 5";
+$(".phase").textContent = "PHASE 09 · 플레이";
+$("footer span").textContent = "ED4 MOBILE / LOCAL PLAY";
 $("#play-area").insertAdjacentHTML(
   "afterbegin",
   '<div id="rotate-notice" role="status">기기를 가로로 회전하면 게임 화면이 더 크게 표시됩니다.</div><div id="session-notice" role="status"></div>',
@@ -276,7 +277,7 @@ $("#edit-exe").parentElement!.insertAdjacentHTML(
     .map(([key, v]) => `<option value="${key}">${v.name}</option>`)
     .join(
       "",
-    )}</select></label><label>모드 요구 원본 버전 ID (비우면 제한 없음)<input id="required-version" maxlength="100"></label><label>저장 경로 규칙 (쉼표 구분, *.SAV / SAVE/ / 정확한 경로)<input id="save-paths" maxlength="1000"></label><p class="hint">규칙은 파일 분류용이며 삭제/보관 여부를 결정하지 않습니다. 기존 원본 경로의 비세이브 변경은 별도 리소스 변경 공간에 보관됩니다.</p>`,
+    )}</select></label><label>모드 참고 원본 버전 ID (달라도 실행 허용)<input id="required-version" maxlength="100"></label><label>저장 경로 규칙 (쉼표 구분, *.SAV / SAVE/ / 정확한 경로)<input id="save-paths" maxlength="1000"></label><p class="hint">규칙은 파일 분류용이며 삭제/보관 여부를 결정하지 않습니다. 기존 원본 경로의 비세이브 변경은 별도 리소스 변경 공간에 보관됩니다.</p>`,
 );
 $("#import-name").parentElement!.insertAdjacentHTML(
   "afterend",
@@ -284,7 +285,7 @@ $("#import-name").parentElement!.insertAdjacentHTML(
 );
 $(".diagnostics").insertAdjacentHTML(
   "beforebegin",
-  '<section class="card phase2-card"><div class="card-heading"><h3>무결성 / 모드 호환성 진단</h3><button id="inspect-profile">파일 구조·충돌 검사</button></div><pre id="compatibility-report">프로필을 선택해 원본 버전, 경로, 레이어 및 저장 충돌을 확인하세요.</pre><button id="export-diagnostics">실행 로그·진단 JSON 내보내기</button><p class="hint">게임 파일 내용은 내보내지 않습니다. 파일 경로·프로필 설정·실행 로그는 포함됩니다. 메모리 수치는 정확한 버퍼 크기와 지원 브라우저의 관측값이며 전체 peak/RSS가 아닙니다.</p></section>',
+  '<section class="card phase2-card"><div class="card-heading"><h3>게임 버전 참고 / 모드 호환성 진단</h3><button id="inspect-profile">파일 구조·충돌 검사</button></div><pre id="compatibility-report">프로필을 선택해 원본 버전, 경로, 레이어 및 저장 충돌을 확인하세요.</pre><button id="export-diagnostics">실행 로그·진단 JSON 내보내기</button><p class="hint">게임 파일 내용은 내보내지 않습니다. 파일 경로·프로필 설정·실행 로그는 포함됩니다. 메모리 수치는 정확한 버퍼 크기와 지원 브라우저의 관측값이며 전체 peak/RSS가 아닙니다.</p></section>',
 );
 $("#preset").addEventListener("change", () => {
   const preset = PRESETS[$<HTMLSelectElement>("#preset").value];
@@ -323,6 +324,7 @@ async function diagnostic() {
     importTrace: importTrace(),
     bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
     bootSettings,
+    playUi:playUiSnapshot(),
     engine: engine?.diagnostics() ?? lastEngineMetrics,
     rawPreview: {
       state: rawPreview.state,
@@ -359,7 +361,7 @@ async function diagnostic() {
     diagnosticRevision: 'phase7-runtime-1',
     runStage: $("#run-state").textContent,
     lastError,
-    verification: "Galaxy Hotfix 2 진단 작동 확인. GAME.BAT 1·2행 반환, 3행 DRIVER 진입 후 LOADER/LOGO/RTM/ED4 EXEC 요청 및 Worker RuntimeError: null function 사용자 관측. 요청은 초기화 성공이 아니며 실제 게임 정상 진행은 미확인. 500MB ZIP 시간 초과, 폴더 등록 성공.",
+    verification: "사용자 실기 확인: Galaxy Phase9-7에서 원본 게임 실행·한글·이동·모노 오디오 정상, RAW53개 연결·읽기 관측. JSON16 원문이 아닌 사용자 확인 결과를 반영. 세이브 영구 저장 및 게임 2×와 BGM1× 동시 보존은 미검증.",
   };
 }
 on("#inspect-profile", async () => {
@@ -702,8 +704,9 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'}) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'}) {
   idle();
+  window.dispatchEvent(new Event("ed4-release-input"));
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
     void enterLandscape($("#play-area"), (message) => {
@@ -727,7 +730,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
   try {
     const save = await getSave(p.id);
     const input = await loadProfile(p);
-    checkRequirements(p, input);
+    for(const note of checkRequirements(p, input))log(note);
     const risks = conflicts(p, input, save).filter((c) => c.saveOverride);
     if (
       risks.length &&
@@ -924,6 +927,7 @@ for (const [name, code] of [
   select.value = String(KEY[code]);
   select.onchange = () => {
     engine?.releaseKeys();
+    if(name!=="menu"){saveControls();return;}
     const b = $(`#${name}-key`);
     b.dataset.key = select.value;
     b.querySelector("small")!.textContent =
@@ -1004,6 +1008,7 @@ try {
       const select = $<HTMLSelectElement>(`#map-${name}`);
       if (optionKeys.some((k) => String(KEY[k]) === saved[name])) {
         select.value = saved[name];
+        if(name!=="menu")continue;
         $(`#${name}-key`).dataset.key = saved[name];
         $(`#${name}-key small`).textContent =
           select.selectedOptions[0].textContent;
@@ -1353,7 +1358,7 @@ $<HTMLInputElement>("#relink-file").onchange = () =>
       !confirm(
         verdict === "matched"
           ? "SHA-256이 일치합니다. 원본 ZIP을 다시 연결할까요?"
-          : "기존 Phase 1 자료에는 원본 ZIP 해시가 없어 일치 여부를 검증할 수 없습니다. 같은 버전임을 확인하고 이번 ZIP의 SHA-256을 기준으로 등록할까요?",
+          : verdict==='different' ? "등록 당시 해시와 다른 수정본입니다. 손상으로 판단하지 않습니다. 이 파일을 사용하는 프로필에 연결할까요? 기존 세이브는 유지됩니다." : "기존 자료에는 비교할 해시가 없습니다. 선택한 ZIP을 연결할까요? 기존 세이브는 유지됩니다.",
       )
     )
       return;
@@ -1380,10 +1385,10 @@ $<HTMLInputElement>("#relink-folder").onchange = () =>
       (p) => p.baseId === relinkId || p.patchIds.includes(relinkId),
     );
     if (!p) throw Error("해당 프로필이 없습니다.");
-    checkIdentity(p.archiveIdentities?.[relinkId], a);
+    const verdict=checkIdentity(p.archiveIdentities?.[relinkId], a);
     if (
       !confirm(
-        "폴더 manifest 해시가 일치합니다. 같은 원본 폴더를 다시 연결할까요?",
+        verdict==='matched'?"폴더 manifest 해시가 일치합니다. 폴더를 다시 연결할까요?":"등록 당시와 다르거나 비교할 해시가 없는 폴더입니다. 수정본으로 연결할 수 있습니다. 기존 세이브를 유지하고 연결할까요?",
       )
     )
       return;
@@ -1469,7 +1474,7 @@ $('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">
 $('#play-area').insertAdjacentHTML('afterbegin','<div id="trace-status" role="status"></div>');
 $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="dialog-heading"><h2>임시 실행 추적</h2><button id="boot-close">닫기</button></div>
 <p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
-<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option><option value="phase9-5b">실험: Phase 9-5B 텍스트 메모리 호환 · 저장 안 함</option><option value="phase9-6">실험: Phase 9-6 추적 OFF · 저장 안 함</option><option value="phase9-7">실험: Phase 9-7 모노 출력 수정 (9-6 WASM) · 저장 안 함</option></select></label>
+<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option><option value="phase9-5b">실험: Phase 9-5B 텍스트 메모리 호환 · 저장 안 함</option><option value="phase9-6">실험: Phase 9-6 추적 OFF · 저장 안 함</option><option value="phase9-7">실험: Phase 9-7 모노 출력 수정 (9-6 WASM) · 저장 안 함</option><option value="phase9-8c">실험: Phase 9-8C BGM 명령 관측 · 1× · 저장 안 함</option><option value="phase9-8d">실험: Phase 9-8D INT69·시작 오디오 관측 · 1× · 저장 안 함</option></select></label>
 <p>실험 엔진은 재부팅 진입 경로·CPU 상태를 기록합니다. 원래 abort() 오류는 유지됩니다. 엔진만 바꾸고 BAT·CPU·메모리·음악 조건은 먼저 그대로 비교하세요. 닫거나 종료하면 안정 엔진으로 돌아갑니다.</p>
 <label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option><option value="pc-baseline">PC 환경 기준: 현재 설정 · 믹서 출력 켬</option><option value="pc-mixer-nosound">PC 환경 비교: mixer.nosound=true만 변경</option></select></label>
 <p>WASM 비교 3종은 현재 CPU·메모리를 유지하고 동일 SB16을 사용합니다. 기준 결과부터 수집하고 한 번에 BAT 또는 RAW 마운트 하나만 비교하세요. RAW 생략은 OPFS 연결 음악에만 적용되며 본체 파일을 삭제하지 않습니다. NOSOUND의 실제 명령 순서를 먼저 확인하세요.</p>
@@ -1540,7 +1545,7 @@ on('#boot-start',async()=>{
   dosConfig({...current(),settings}); // validate before closing or starting
   const comparison=selectedComparison();
   const selectedEngine=$<HTMLSelectElement>('#boot-engine').value;
-  const experimentalEngine=selectedEngine==='phase9-2'||selectedEngine==='phase9-3'||selectedEngine==='phase9-4'||selectedEngine==='phase9-5b'||selectedEngine==='phase9-6'||selectedEngine==='phase9-7'?selectedEngine:undefined;
+  const experimentalEngine=selectedEngine==='phase9-2'||selectedEngine==='phase9-3'||selectedEngine==='phase9-4'||selectedEngine==='phase9-5b'||selectedEngine==='phase9-6'||selectedEngine==='phase9-7'||selectedEngine==='phase9-8c'||selectedEngine==='phase9-8d'?selectedEngine:undefined;
   $<HTMLSelectElement>('#boot-engine').value='stable';
   $<HTMLDialogElement>('#boot-dialog').close();bootFiles={};
   await startGame({...comparison??{entry,settings,mode:'manual'},experimentalEngine});
@@ -1552,3 +1557,7 @@ on('#screen-export',async()=>{
 });
 
 void init().catch((e) => status(storageError(e), true));
+
+// Phase 9-8: UI preferences are separate from profiles/saves/legacy controls.
+const playUiSnapshot=installPlayUi($("#play-area"));
+for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelectElement>('#'+id);field.disabled=true;field.title='기존 설정은 보존됩니다. ED4 오버레이는 Enter/ESC 고정입니다.';}

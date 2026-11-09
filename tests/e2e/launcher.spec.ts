@@ -202,7 +202,8 @@ test("ZIP upload, patch conflicts, standalone, mobile touch and layout", async (
   await page.locator("#play").click();
   await expect(page.locator("#run-state")).toHaveText("실행 중");
   // Real pointer path (setPointerCapture requires a trusted active pointer).
-  await page.locator('[aria-label="위"]').click();
+  const joy=(await page.locator("#direction-pad .up").boundingBox())!;
+  await page.locator("#direction-pad .up").click({position:{x:joy.width/2,y:joy.height*.1}});
   await expect(page.locator("#logs")).toContainText("KEY RECEIVED");
   await page.screenshot({ path: "test-results/mobile-landscape.png" });
   expect(

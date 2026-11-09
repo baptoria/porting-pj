@@ -44,6 +44,7 @@ export class DosObservation {
   }
   error(message:string){this.workerError=safeText(message);this.state='worker-error';}
   stopped(){this.state='stopped';}
+  latestProgram(){return this.requests.at(-1)?.program;}
   report(){
     const now=performance.now()-this.start,latest=this.requests.at(-1);
     return {state:this.state,workerError:this.workerError,capturedAtMs:now,

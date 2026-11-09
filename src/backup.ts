@@ -61,21 +61,9 @@ export function importBackup(bytes: Uint8Array, profile: Profile): Save {
     }
     (prefix === "FILES/" ? files : resources)[name] = data;
   }
-  const backupIdentities = validateIdentities(meta.profile?.archiveIdentities);
-  for (const [key, expected] of Object.entries(profile.archiveIdentities ?? {}))
-    if (
-      expected.manifestSha256 &&
-      backupIdentities?.[key]?.manifestSha256 &&
-      expected.manifestSha256 !== backupIdentities[key].manifestSha256
-    )
-      throw Error("백업 원본 폴더 해시 불일치");
-  for (const [key, expected] of Object.entries(profile.archiveIdentities ?? {}))
-    if (
-      expected.sha256 &&
-      backupIdentities?.[key]?.sha256 &&
-      expected.sha256 !== backupIdentities[key].sha256
-    )
-      throw new Error("백업 원본 해시 불일치");
+  // Validate the backup schema, not equality with a historical game revision.
+  // Profile isolation and explicit restore remain enforced above.
+  validateIdentities(meta.profile?.archiveIdentities);
   return normalizeSave({
     profileId: profile.id,
     files,

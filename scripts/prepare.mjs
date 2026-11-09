@@ -130,3 +130,8 @@ await import('./prepare-phase9-6-assets.mjs');
 await import('./prepare-phase9-6-worker.mjs');
 
 await import('./prepare-phase9-7-worker.mjs');
+await import('./prepare-phase9-8c-assets.mjs');
+await import('./prepare-phase9-8c-worker.mjs');
+
+await import('./prepare-phase9-8d-assets.mjs');
+await import('./prepare-phase9-8d-worker.mjs');

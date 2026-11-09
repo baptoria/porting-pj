@@ -131,7 +131,7 @@ it("v2 backup preserves music references without copying music payload", () => {
   expect(recovered.profile.music).toEqual(profile.music);
   expect(zip.length).toBeLessThan(2000);
 });
-it("folder fingerprint remains enforced even when version alias is reused", () => {
+it("folder fingerprint difference remains observable without rejecting a mod", () => {
   const a = {
     id: "base",
     name: "folder",
@@ -141,9 +141,9 @@ it("folder fingerprint remains enforced even when version alias is reused", () =
     versionId: "custom",
     manifestSha256: "a".repeat(64),
   };
-  expect(() =>
+  expect(
     checkIdentity(identity(a), { ...a, manifestSha256: "b".repeat(64) }),
-  ).toThrow("폴더");
+  ).toBe("different");
 });
 it("folder identity survives v2 profile recovery", () => {
   const profile = {

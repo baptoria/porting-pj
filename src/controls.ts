@@ -1,4 +1,5 @@
 import type { DosEngine } from "./engine";
+import {KeyOwners} from "./play-input";
 export const KEY: Record<string, number> = {
   Escape: 256,
   Enter: 257,
@@ -41,59 +42,40 @@ export function bindControls(
   container: HTMLElement,
   getEngine: () => DosEngine | undefined,
 ) {
-  const held = new Map<string, number>();
-  const press = (source: string, code: number) => {
-    if (!held.has(source)) {
-      held.set(source, code);
-      getEngine()?.key(code, true);
-    }
+  const held=new KeyOwners((code,down)=>getEngine()?.key(code,down));
+  const buttons=new Map<number,HTMLButtonElement>();let directionPointer:number|undefined;
+  const pad=container.querySelector<HTMLElement>('#direction-pad');
+  const highlight=()=>container.querySelectorAll('[data-key]').forEach(b=>b.classList.toggle('pressed',[...buttons.values()].includes(b as HTMLButtonElement)));
+  const clear=()=>{held.clear();buttons.clear();directionPointer=undefined;highlight();getEngine()?.releaseKeys();};
+  const move=(e:PointerEvent)=>{
+    if(!pad||e.pointerId!==directionPointer)return;
+    const b=[...pad.querySelectorAll<HTMLButtonElement>('[data-key]')].find(b=>{const r=b.getBoundingClientRect();return e.clientX>=r.left&&e.clientX<r.right&&e.clientY>=r.top&&e.clientY<r.bottom;});
+    held.set('direction',b?[Number(b.dataset.key)]:[]);
+    if(b)buttons.set(e.pointerId,b);else buttons.delete(e.pointerId);highlight();
   };
-  const release = (source: string) => {
-    const code = held.get(source);
-    held.delete(source);
-    if (code !== undefined && ![...held.values()].includes(code))
-      getEngine()?.key(code, false);
-  };
-  const clear = () => {
-    held.clear();
-    getEngine()?.releaseKeys();
-  };
-  container.addEventListener("pointerdown", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      "[data-key]",
-    );
-    if (!button) return;
-    event.preventDefault();
-    button.setPointerCapture(event.pointerId);
-    press(`pointer-${event.pointerId}`, Number(button.dataset.key));
-    button.classList.add("pressed");
-  });
-  for (const name of ["pointerup", "pointercancel", "lostpointercapture"])
-    container.addEventListener(name, (event) => {
-      const e = event as PointerEvent;
-      release(`pointer-${e.pointerId}`);
-      (e.target as HTMLElement).classList.remove("pressed");
-    });
-  window.addEventListener("keydown", (e) => {
-    if (
-      !getEngine() ||
-      (e.target as HTMLElement).matches("input,select,textarea") ||
-      e.metaKey ||
-      (e.ctrlKey && !["ControlLeft", "ControlRight"].includes(e.code))
-    )
-      return;
-    if (KEY[e.code] !== undefined) {
-      e.preventDefault();
-      press(e.code, KEY[e.code]);
+  container.addEventListener('pointerdown',e=>{
+    if((e.target as HTMLElement).closest('#direction-pad [data-key]')){
+      e.preventDefault();if(directionPointer!==undefined)return;directionPointer=e.pointerId;
+      try{pad?.setPointerCapture(e.pointerId);}catch{/* Synthetic events have no active pointer. */}
+      move(e);return;
     }
+    const b=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-key]');if(!b)return;
+    e.preventDefault();try{b.setPointerCapture(e.pointerId);}catch{}
+    buttons.set(e.pointerId,b);held.set(`pointer-${e.pointerId}`,[Number(b.dataset.key)]);b.classList.add('pressed');
   });
-  window.addEventListener("keyup", (e) => {
-    if (held.has(e.code)) {
-      e.preventDefault();
-      release(e.code);
-    }
+  container.addEventListener('pointermove',move);
+  for(const name of ['pointerup','pointercancel','lostpointercapture'])container.addEventListener(name,event=>{
+    const e=event as PointerEvent;if(e.pointerId===directionPointer){held.set('direction',[]);directionPointer=undefined;}
+    held.set(`pointer-${e.pointerId}`,[]);const b=buttons.get(e.pointerId);buttons.delete(e.pointerId);
+    if(b&&![...buttons.values()].includes(b))b.classList.remove('pressed');
   });
-  window.addEventListener("blur", clear);
-  document.addEventListener("visibilitychange", clear);
+  window.addEventListener('keydown',e=>{
+    if(!getEngine()||(e.target as HTMLElement).closest('input,select,textarea,dialog,button')||e.metaKey||(e.ctrlKey&&!['ControlLeft','ControlRight'].includes(e.code)))return;
+    if(KEY[e.code]!==undefined){e.preventDefault();held.set(e.code,[KEY[e.code]]);}
+  });
+  window.addEventListener('keyup',e=>{if(KEY[e.code]!==undefined)held.set(e.code,[]);});
+  window.addEventListener('blur',clear);window.addEventListener('resize',clear);window.addEventListener('orientationchange',clear);
+  document.addEventListener('visibilitychange',clear);document.addEventListener('fullscreenchange',clear);
+  window.addEventListener('ed4-release-input',clear);screen.orientation?.addEventListener('change',clear);
   return clear;
 }

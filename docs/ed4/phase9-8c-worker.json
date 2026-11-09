@@ -1,0 +1,7 @@
+{
+  "revision": "phase9-8c-common-1",
+  "common": "dos-worker-common-phase9-8c-39ee9b74e178e048.js",
+  "sha256": "39ee9b74e178e048ed5f023c896a02058b7ad7b2738c3a5cc409cc25e989ccbe",
+  "entry": "dos-worker-phase9-8c-fffb16dbc0c0527e.js",
+  "entrySha256": "fffb16dbc0c0527e0682add946f66fd523acf5ba2b8a3e5492845061ab304034"
+}

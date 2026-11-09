@@ -1,0 +1,12 @@
+const names=['sequence','guestTick','kind','command','cs','ip','psp','cr0','protectedMode','ds','si','es','di','bx','cx','dx','driverSignatureMatch','bufferMetadataValid','bufferLinear','bufferLength','frequency','statusLinear','addressCandidateReadSequence','fileBasenameHash','readDestination','readLength','dma1Address','dma1Count','dma1Masked','dma5Address','dma5Count','dma5Masked'];
+const uint=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=0&&v<=0xffffffff;
+export function bgmDiagnostics(value:any){
+ if(value?.version!==1||!Array.isArray(value.header)||value.header.length!==33||!value.header.every((n:unknown)=>n===-1||uint(n))||!Array.isArray(value.rows)||value.rows.length>288||!value.rows.every((r:any)=>Array.isArray(r)&&r.length===32&&r.every(uint)))return {source:'invalid-or-unavailable',ownership:'unknown'};
+ const tracks=Array.isArray(value.tracks)?value.tracks.filter((t:any)=>uint(t?.hash)&&typeof t.path==='string'&&t.path.length<=260&&/^[A-Z0-9_!#$%&'()@^`{}~.\/ -]+$/.test(t.path)&&!t.path.split('/').some((p:string)=>!p||p==='.'||p==='..')).slice(0,256).map((t:any)=>({hash:t.hash,path:t.path})):[];
+ const fileReads=Array.isArray(value.fileReads?.events)?value.fileReads.events.filter((e:any)=>['sequence','hash','position','length'].every(k=>uint(e?.[k]))).slice(0,288).map((e:any)=>({sequence:e.sequence,hash:e.hash,position:e.position,length:e.length})):[];
+ return {source:'live-worker-query',version:1,ownership:'unknown',speed:1,totalRecorded:value.header[0],overwritten:value.header[2],int66Calls:value.header[3],int69Calls:value.header[7]<0?null:value.header[7],rawReads:value.header[4],efcReads:value.header[5],nativeStorageBytes:value.header[6],
+ commands:Object.fromEntries(Array.from({length:24},(_,i)=>[(0x688+i).toString(16),value.header[8+i]])),otherInt66:value.header[32],tracks,
+ events:value.rows.map((r:number[])=>Object.fromEntries(names.map((k,i)=>[k,r[i]]))),fileReads,
+ fileReadTotal:uint(value.fileReads?.total)?value.fileReads.total:null,fileReadOverwritten:uint(value.fileReads?.overwritten)?value.fileReads.overwritten:null,
+ limits:['INT66 and kind4 INT69 events are pre-dispatch requests, not playback success or verified track IDs.','Buffer metadata only when real mode, KERN signature and conventional-RAM bounds are valid.','Address overlap is a candidate, not ownership: CPU copies/mixes/writes are not traced.','No FCB/custom direct file reads, protected pointer decoding, sample capture or automatic play/mute.','DMA1/5 snapshots are read-only, not proof these are the active SB channels.']};
+}

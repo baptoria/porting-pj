@@ -67,7 +67,7 @@ export async function reconnectArchive(a: Archive) {
     )) {
       const old = p.archiveIdentities?.[a.id];
       checkIdentity(old, a);
-      if (old?.sha256 || old?.manifestSha256) a.versionId = old.versionId;
+      if (checkIdentity(old,a)==='matched' && old) a.versionId = old.versionId;
       const next = {
         ...p,
         schemaVersion: 2 as const,

@@ -100,7 +100,8 @@ export async function musicMounts(
           throw Error("연결된 음악 파일이 사라졌습니다: " + (t.originalPath ?? t.path) + ". 설정의 음악 보관함에서 다시 등록·연결하세요. 게임과 세이브는 유지됩니다.");
         throw error;
       })).getFile();
-      if (file.size !== t.size) throw Error("음악 파일 크기 불일치: " + t.path);
+      // Registered metadata may describe an earlier user revision. Mount actual
+      // readable bytes/size; a canonical music hash/length is not an allowlist.
       return { path: t.path, file };
     }),
   );

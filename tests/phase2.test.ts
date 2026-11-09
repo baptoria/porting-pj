@@ -246,20 +246,20 @@ describe("Phase 2 origin and mod compatibility", () => {
       "unverified",
     );
   });
-  it("rejects a different ZIP while retaining pinned identity", () => {
-    expect(() =>
+  it("reports a different ZIP as metadata without blocking user mods", () => {
+    expect(
       checkIdentity(
         { versionId: "v1", sha256: "a".repeat(64) },
         { ...a, sha256: "b".repeat(64) },
       ),
-    ).toThrow("해시 불일치");
+    ).toBe("different");
   });
-  it("enforces required game version", () => {
-    expect(() =>
+  it("reports required game version as advisory for mods", () => {
+    expect(
       checkRequirements({ ...p, requiredBaseVersion: "release-2" }, [
         { ...a, versionId: "release-1" },
       ]),
-    ).toThrow("요구 원본 버전 불일치");
+    ).toEqual([expect.stringContaining("실행을 허용")]);
   });
   it("shows layer collisions, winner, and save shadowing", () => {
     const mod = {
@@ -341,20 +341,15 @@ describe("Phase 2 transactional storage", () => {
     expect(result.archives[0].fileCount).toBe(3);
     expect((await getArchive(a.id)).files).toEqual(a.files);
   });
-  it("rejects mismatched reconnection atomically", async () => {
-    const pinned = { ...a, sha256: "a".repeat(64), versionId: "v1" };
-    await putProfile(p, [pinned]);
-    await expect(
-      reconnectArchive({
-        ...a,
-        sha256: "b".repeat(64),
-        files: { "EVIL.COM": text("x") },
-      }),
-    ).rejects.toThrow("해시 불일치");
-    expect((await getArchive(a.id)).files).toEqual(a.files);
-    expect(
-      (await listCatalog()).profiles[0].archiveIdentities![a.id].sha256,
-    ).toBe(pinned.sha256);
+  it("explicit modified reconnection preserves save bytes and updates metadata", async () => {
+    const pinned={...a,sha256:"a".repeat(64),versionId:"v1"};
+    await putProfile(p,[pinned]);await putSave(saved);
+    const modified={...a,sha256:"b".repeat(64),files:{...a.files,"RESOURCE.DAT":text("user mod with changed size")}};
+    await reconnectArchive(modified);
+    expect((await getArchive(a.id)).files).toEqual(modified.files);
+    expect((await listCatalog()).profiles[0].archiveIdentities![a.id].sha256).toBe(modified.sha256);
+    expect((await getSave(p.id))!.files).toEqual(saved.files);
+    expect(pinned.sha256).toBe("a".repeat(64));
   });
   it("binds first verified legacy ZIP without altering saved bytes", async () => {
     await putProfile(p, [a]);
