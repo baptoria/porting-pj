@@ -11,7 +11,9 @@ import { RuntimeErrors, diagnosticText } from './runtime-errors';
 import { RebootObservation } from './reboot-observation';
 import { CpuHistory } from './cpu-history';
 import { FirstAnomaly } from './first-anomaly';
+import { emulatorAudioBuffer } from "./emulator-audio";
 import { PerformanceWindow } from './performance-window';
+import { PHASE97_WORKER } from './generated/phase9-7-worker';
 import { PHASE96_WORKER } from './generated/phase9-6-worker';
 import { PHASE95B_WORKER } from './generated/phase9-5b-worker';
 import { PHASE94_WORKER } from './generated/phase9-4-worker';
@@ -55,6 +57,11 @@ export class DosEngine implements Engine {
   private audio?: AudioContext;
   private gain?: GainNode;
   private nextAudio = 0;
+  private audioOutput={sourceRate:0,blocks:0,inputFrames:0,scheduledFrames:0,resyncs:0};
+  private rawObservation={source:'not-sampled',capturedAtMs:null as number|null};
+  private rawRequest=0;
+  private rawReply?:()=>void;
+  private rawPending?:Promise<void>;
   private pressed = new Set<number>();
   private frame?: ImageData;
   private paused = false;
@@ -94,13 +101,20 @@ export class DosEngine implements Engine {
         this.metrics.frames /
         Math.max(1, (performance.now() - this.startedAt) / 1000),
       audioState: this.audio?.state ?? "closed",
+      audioOutput:{...this.audioOutput,contextRate:this.audio?.sampleRate??null,
+        adapter:this.artifact.id==='phase9-7'?'mono-v1':'legacy-interleaved-stereo',
+        sourceChannels:1,outputBufferChannels:this.artifact.id==='phase9-7'?1:2,
+        runtimeEngine:this.artifact.id==='phase9-7'?'phase9-6':this.artifact.id,
+        deviceUsage:'unobserved: mixed stream cannot distinguish OPL/PCM',
+        baseLatency:this.audio?.baseLatency??null,outputLatency:this.audio?.outputLatency??null},
       paused: this.paused,
       music: this.musicMetrics,
+      musicObservation:{...this.rawObservation},
       execution: this.observation.report(),
       runtimeErrors:this.runtimeErrors.report(),
       artifact:{...this.artifact},
       reboot:this.reboot.report(),
-      cpuHistory:this.artifact.id==='phase9-6'?{enabled:false,reason:'Instruction history compiled out; rare reboot/EXEC events retained.'}:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
+      cpuHistory:(this.artifact.id==='phase9-6'||this.artifact.id==='phase9-7')?{enabled:false,reason:'Instruction history compiled out; rare reboot/EXEC events retained.'}:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -124,6 +138,7 @@ export class DosEngine implements Engine {
   }
   async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:ExperimentalEngineId;discardWrites:true}) {
     this.startedAt = performance.now();
+    this.audioOutput={sourceRate:0,blocks:0,inputFrames:0,scheduledFrames:0,resyncs:0};
     this.observation=new DosObservation();
     this.runtimeErrors=new RuntimeErrors();
     this.reboot=new RebootObservation();
@@ -133,16 +148,17 @@ export class DosEngine implements Engine {
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(!['phase9-2','phase9-3','phase9-4','phase9-5b','phase9-6'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      if(!['phase9-2','phase9-3','phase9-4','phase9-5b','phase9-6','phase9-7'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=true;
       this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
       try{verified=await prepareRebootEngine(experiment.id);}
       catch(e){this.runtimeErrors.record('experimental-engine-load',{name:'Error',message:String(e)});throw e;}
       this.artifact={...this.artifact,wasmSha256:verified.sha256,verification:'sha256-of-compiled-module'};
     }
+    this.rawObservation={source:'not-sampled',capturedAtMs:null};
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
-    const pinnedWorker=experiment?.id==='phase9-6'?PHASE96_WORKER:experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
+    const pinnedWorker=experiment?.id==='phase9-7'?PHASE97_WORKER:experiment?.id==='phase9-6'?PHASE96_WORKER:experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
     if(pinnedWorker)this.artifact.worker={entry:pinnedWorker.entry,common:pinnedWorker.common,expectedSha256:pinnedWorker.sha256,revision:pinnedWorker.revision,bootstrap:'pending'};
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
@@ -154,6 +170,14 @@ export class DosEngine implements Engine {
     let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-audio-status'){
+        const p=event.data.props;
+        if(this.artifact.id==='phase9-7'&&this.rawReply&&p?.id===this.rawRequest&&['reads','bytes','largestRead','mounted'].every(k=>Number.isSafeInteger(p[k])&&p[k]>=0)){
+          this.musicMetrics={reads:p.reads,bytes:p.bytes,largestRead:p.largestRead,mounted:p.mounted};
+          this.rawObservation={source:'live-worker-query',capturedAtMs:performance.now()-this.startedAt};this.rawReply();
+        }
+        return;
+      }
       if(event.data?.name==='ed4-performance'){
         if(event.data.props?.id===this.performanceId)this.performanceWindow?.sample(event.data.props);
         return;
@@ -195,6 +219,7 @@ export class DosEngine implements Engine {
         this.snapshotInfo = event.data.props.ed4Snapshot;
         this.snapshotError = event.data.props.ed4SnapshotError;
         this.musicMetrics = event.data.props.ed4Snapshot?.music;
+        this.rawObservation={source:'persist-snapshot',capturedAtMs:performance.now()-this.startedAt};
       }
       if (handler) handler(event.data.name, event.data.props);
       else queue.push(event);
@@ -298,15 +323,9 @@ export class DosEngine implements Engine {
         samples.length < 2
       )
         return;
-      const buffer = audio.createBuffer(
-        2,
-        samples.length / 2,
-        ci.soundFrequency(),
-      );
-      for (let c = 0; c < 2; c++) {
-        const data = buffer.getChannelData(c);
-        for (let i = 0; i < data.length; i++) data[i] = samples[i * 2 + c];
-      }
+      const buffer=emulatorAudioBuffer(audio,samples,ci.soundFrequency(),this.artifact.id==='phase9-7');
+      this.audioOutput.sourceRate=ci.soundFrequency();this.audioOutput.blocks++;
+      this.audioOutput.inputFrames+=samples.length;this.audioOutput.scheduledFrames+=buffer.length;
       const source = audio.createBufferSource();
       source.buffer = buffer;
       source.connect(this.gain!);
@@ -314,7 +333,7 @@ export class DosEngine implements Engine {
         this.nextAudio < audio.currentTime ||
         this.nextAudio > audio.currentTime + 0.25
       )
-        this.nextAudio = audio.currentTime + 0.025;
+        {this.nextAudio = audio.currentTime + 0.025;this.audioOutput.resyncs++;}
       source.start(this.nextAudio);
       this.nextAudio += buffer.duration;
       } finally {sample?.audio(performance.now()-audioStart,samples.length);}
@@ -324,11 +343,22 @@ export class DosEngine implements Engine {
     context.putImageData(initial, 0, 0);
     this.log("DOS 엔진 연결 완료");
   }
+  async refreshAudioDiagnostics(){
+    if(this.artifact.id!=='phase9-7'||!this.worker)return;
+    if(this.rawPending)return this.rawPending;
+    this.rawPending=new Promise<void>(resolve=>{
+      const id=++this.rawRequest;
+      const finish=()=>{clearTimeout(timer);this.rawReply=undefined;this.rawPending=undefined;resolve();};
+      const timer=setTimeout(()=>{this.rawObservation={source:'query-timeout-not-current',capturedAtMs:this.rawObservation.capturedAtMs};finish();},1500);
+      this.rawReply=finish;this.worker!.postMessage({name:'ed4-audio-status',id});
+    });
+    return this.rawPending;
+  }
   async measurePerformance() {
     if(!this.ci)throw Error('게임 메뉴에 진입한 뒤 측정하세요.');
     if(this.performanceWindow?.active)throw Error('성능 측정이 진행 중입니다.');
     const sample=this.performanceWindow=new PerformanceWindow(),id=++this.performanceId;
-    const native=this.artifact.id==='phase9-6';
+    const native=this.artifact.id==='phase9-6'||this.artifact.id==='phase9-7';
     sample.start(performance.now());this.frameSentAt=undefined;
     const visibility=()=>{if(document.hidden)sample.invalidate('hidden');};visibility();
     document.addEventListener('visibilitychange',visibility);

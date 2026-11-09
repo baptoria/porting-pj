@@ -1,0 +1,8 @@
+// Generated; same reviewed 9-6 common/engine, read-only status query.
+export const PHASE97_WORKER={
+  "revision": "phase9-6-common-1",
+  "entry": "dos-worker-phase9-7-28b1feae72d99c1f.js",
+  "common": "dos-worker-common-phase9-6-eb1d69c995e7b4e1.js",
+  "sha256": "eb1d69c995e7b4e157d424a4b84d67ae24fd8de9661bebf8ac0d6511ec1ff259",
+  "entrySha256": "28b1feae72d99c1f519e9b7cf2e3d65ff0df1385cb2dafd12697d31e218facd9"
+} as const;

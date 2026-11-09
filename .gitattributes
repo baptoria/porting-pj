@@ -32,3 +32,7 @@
 /public/dos-worker-*phase9-6*.js -text
 /docs/ed4/dos-worker-*phase9-6*.js -text
 /scripts/phase9-6-worker-performance.js -text
+
+# Phase 9-7 reuses the exact 9-6 common Worker and WASM.
+/public/dos-worker-*phase9-7*.js -text
+/docs/ed4/dos-worker-*phase9-7*.js -text
