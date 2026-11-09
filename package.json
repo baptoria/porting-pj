@@ -7,7 +7,7 @@
   "scripts": {
     "predev": "node scripts/prepare.mjs",
     "dev": "vite --host 0.0.0.0",
-    "build": "node scripts/prepare.mjs && tsc --noEmit && node scripts/package-source.mjs && vite build && node scripts/sw.mjs && node scripts/check-phase9-3-worker.mjs && node scripts/check-phase9-4-worker.mjs",
+    "build": "node scripts/prepare.mjs && tsc --noEmit && node scripts/package-source.mjs && vite build && node scripts/sw.mjs && node scripts/check-phase9-3-worker.mjs && node scripts/check-phase9-4-worker.mjs && node scripts/check-phase9-5b-worker.mjs",
     "preview": "node scripts/serve-pages.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",

@@ -21,10 +21,11 @@ for (const name of [
   "public/dos-worker-phase9-2.js",
   "public/dos-worker-phase9-3.js",
   "public/dos-worker-phase9-4.js",
+  "public/dos-worker-phase9-5b.js",
   "public/licenses/NOTICE.html",
 ])
   await add(name);
-for(const name of await readdir('public'))if(/^dos-worker-(?:common-)?phase9-[34]-[a-f0-9]{16}\.js$/.test(name)||/^phase9-[34]-worker\.json$/.test(name))await add('public/'+name);
+for(const name of await readdir('public'))if(/^dos-worker-(?:common-)?phase9-(?:[34]|5b)-[a-f0-9]{16}\.js$/.test(name)||/^phase9-(?:[34]|5b)-worker\.json$/.test(name))await add('public/'+name);
 await mkdir("public/sources", { recursive: true });
 await writeFile(
   "public/sources/ed4-mobile-source.zip",

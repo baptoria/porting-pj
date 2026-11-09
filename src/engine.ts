@@ -11,6 +11,7 @@ import { RuntimeErrors, diagnosticText } from './runtime-errors';
 import { RebootObservation } from './reboot-observation';
 import { CpuHistory } from './cpu-history';
 import { FirstAnomaly } from './first-anomaly';
+import { PHASE95B_WORKER } from './generated/phase9-5b-worker';
 import { PHASE94_WORKER } from './generated/phase9-4-worker';
 import { PHASE93_WORKER } from './generated/phase9-3-worker';
 import { prepareRebootEngine, experimentalEngine, type ExperimentalEngineId } from './experimental-engine';
@@ -91,7 +92,7 @@ export class DosEngine implements Engine {
       runtimeErrors:this.runtimeErrors.report(),
       artifact:{...this.artifact},
       reboot:this.reboot.report(),
-      cpuHistory:this.artifact.id==='phase9-4'?this.firstAnomaly.report():this.cpuHistory.report(),
+      cpuHistory:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -124,7 +125,7 @@ export class DosEngine implements Engine {
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(!['phase9-2','phase9-3','phase9-4'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      if(!['phase9-2','phase9-3','phase9-4','phase9-5b'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=true;
       this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
       try{verified=await prepareRebootEngine(experiment.id);}
@@ -133,7 +134,7 @@ export class DosEngine implements Engine {
     }
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
-    const pinnedWorker=experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
+    const pinnedWorker=experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
     if(pinnedWorker)this.artifact.worker={entry:pinnedWorker.entry,common:pinnedWorker.common,expectedSha256:pinnedWorker.sha256,revision:pinnedWorker.revision,bootstrap:'pending'};
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
@@ -159,7 +160,7 @@ export class DosEngine implements Engine {
         return;
       }
       if(event.data?.name==='ed4-cpu-history'){
-        if((experiment?.id==='phase9-3'||experiment?.id==='phase9-4')&&(experiment.id==='phase9-4'?this.firstAnomaly:this.cpuHistory).accept(event.data.props))this.log('재부팅 직전 CPU 실행 이력을 진단 JSON에 기록했습니다. 원인 확정은 이력 분석이 필요합니다.');
+        if((experiment?.id==='phase9-3'||experiment?.id==='phase9-4'||experiment?.id==='phase9-5b')&&((experiment.id==='phase9-4'||experiment.id==='phase9-5b')?this.firstAnomaly:this.cpuHistory).accept(event.data.props))this.log('재부팅 직전 CPU 실행 이력을 진단 JSON에 기록했습니다. 원인 확정은 이력 분석이 필요합니다.');
         return;
       }
       if(event.data?.name==='ed4-reboot-event'){

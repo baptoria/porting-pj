@@ -122,3 +122,6 @@ await import('./prepare-phase9-3-worker.mjs');
 
 await import('./prepare-phase9-4-assets.mjs');
 await import('./prepare-phase9-4-worker.mjs');
+
+await import('./prepare-phase9-5b-assets.mjs');
+await import('./prepare-phase9-5b-worker.mjs');
