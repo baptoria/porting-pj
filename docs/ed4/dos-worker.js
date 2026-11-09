@@ -197,3 +197,5 @@ WDOSBOX = function (options) {
     return result.catch(error => { runtimeError('factory-rejection',error); throw error; });
   } catch (error) { runtimeError('factory-exception',error); throw error; }
 };
+// Bootstrap compatibility marker only; no CPU, filesystem, or engine changes.
+self.ed4CommonWorkerRevision = 'phase9-3-common-1';

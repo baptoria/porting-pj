@@ -1,5 +1,9 @@
 # Galaxy 실제 게임 등록·실행 안내
 
+## Phase 9-3 Hotfix: Worker 버전 확인
+
+`Unknown diagnostic engine` 초기 로딩 오류 수정본은 공용 Worker와 진입 Worker를 내용 해시 경로로 고정한다. 배포 후 **온라인에서 실행기 탭/PWA를 모두 닫고 다시 열어 업데이트**한다. 게임 재등록이나 사이트 데이터 삭제는 하지 않는다. Phase 9-3 임시 진단 JSON의 `engine.artifact.worker.bootstrap=ready`, `common=dos-worker-common-phase9-3-735ee752056417c8.js`, `entry=dos-worker-phase9-3-8ff28155444b0ef8.js`를 확인한다. 파일을 아직 받지 않은 오프라인 상태에서는 업데이트가 먼저 필요하다. 상세 근거와 절차는 [PHASE9_3_HOTFIX_REPORT.md](PHASE9_3_HOTFIX_REPORT.md)를 참고한다. 이 Hotfix의 Galaxy 재시험과 실제 게임 성공은 아직 미검증이다.
+
 2026-11-09 / Phase 9-3 추가. 앱 0.5.0 및 기존 `phase7-runtime-1` 표기는 유지하며, 실험 진단은 `engine.reboot.revision=phase9-2-reboot-1`로 구별한다.
 
 ## Phase 9-3: Reset Vector 직전 CPU 이력 (이번 시험)

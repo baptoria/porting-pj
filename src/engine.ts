@@ -10,6 +10,7 @@ import { DosObservation } from './dos-observation';
 import { RuntimeErrors, diagnosticText } from './runtime-errors';
 import { RebootObservation } from './reboot-observation';
 import { CpuHistory } from './cpu-history';
+import { PHASE93_WORKER } from './generated/phase9-3-worker';
 import { prepareRebootEngine, experimentalEngine, type ExperimentalEngineId } from './experimental-engine';
 declare global {
   interface Window {
@@ -67,7 +68,7 @@ export class DosEngine implements Engine {
   private reboot=new RebootObservation();
   private cpuHistory=new CpuHistory();
   private experimental=false;
-  private artifact:{id:string;emulators:string;wasmSha256?:string;expectedSha256?:string;verification:string;sourceCommit:string}={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
+  private artifact:{id:string;emulators:string;wasmSha256?:string;expectedSha256?:string;verification:string;sourceCommit:string;worker?:{entry:string;common:string;expectedSha256:string;revision:string;bootstrap:'pending'|'ready'|'failed'}}={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
   musicMetrics?: {
     reads: number;
     bytes: number;
@@ -128,16 +129,30 @@ export class DosEngine implements Engine {
     }
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
+    if(experiment?.id==='phase9-3')this.artifact.worker={entry:PHASE93_WORKER.entry,common:PHASE93_WORKER.common,expectedSha256:PHASE93_WORKER.sha256,revision:PHASE93_WORKER.revision,bootstrap:'pending'};
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
     const worker = (this.worker = new Worker(
-      `${import.meta.env.BASE_URL}${experiment?`dos-worker-${experiment.id}.js`:'dos-worker.js'}`,
+      `${import.meta.env.BASE_URL}${experiment?.id==='phase9-3'?PHASE93_WORKER.entry:experiment?`dos-worker-${experiment.id}.js`:'dos-worker.js'}`,
     ));
     const sessionId = crypto.randomUUID();
     let handler: MessageHandler | undefined;
     let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-worker-bootstrap'){
+        if(experiment?.id==='phase9-3'&&this.artifact.worker){
+          const p=event.data.props;
+          if(p?.revision===PHASE93_WORKER.revision&&p?.common===PHASE93_WORKER.common&&p?.sha256===PHASE93_WORKER.sha256)this.artifact.worker.bootstrap='ready';
+          else {
+            this.artifact.worker.bootstrap='failed';
+            const message='Phase 9-3 Worker 버전 불일치: 온라인에서 실행기 탭/PWA를 모두 닫고 업데이트하세요. 기존 데이터는 유지됩니다.';
+            this.runtimeErrors.record('worker-bootstrap',{name:'Error',message,stage:'import-common-worker'});
+            this.observation.error(message);this.log(message);worker.terminate();rejectStartup?.(new Error(message));
+          }
+        }
+        return;
+      }
       if(event.data?.name==='ed4-cpu-history'){
         if(experiment?.id==='phase9-3'&&this.cpuHistory.accept(event.data.props))this.log('재부팅 직전 CPU 실행 이력을 진단 JSON에 기록했습니다. 원인 확정은 이력 분석이 필요합니다.');
         return;
@@ -147,7 +162,8 @@ export class DosEngine implements Engine {
         return;
       }
       if(event.data?.name==='ed4-runtime-error'){
-        const source=['worker-error','unhandledrejection','factory-rejection','factory-exception','emscripten-abort'].includes(event.data.props?.source)?event.data.props.source:'worker-report';
+        const source=['worker-error','worker-bootstrap','unhandledrejection','factory-rejection','factory-exception','emscripten-abort'].includes(event.data.props?.source)?event.data.props.source:'worker-report';
+        if(source==='worker-bootstrap'&&this.artifact.worker)this.artifact.worker.bootstrap='failed';
         const failure=this.runtimeErrors.record(source,event.data.props);
         const message=`DOS Worker 오류 (${source}): ${failure.message}`;
         this.observation.error(message);this.log(message);
