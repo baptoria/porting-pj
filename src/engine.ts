@@ -101,6 +101,7 @@ export class DosEngine implements Engine {
   };
   diagnostics() {
     return {
+      identity:{requestedEngine:this.artifact.id,actualEngine:this.engineReady?this.artifact.id:null,status:this.engineReady?'verified':'not-ready',basis:this.artifact.worker?'verified WASM and pinned Worker bootstrap, backend ready':'fixed stable backend ready; release hash is pinned, not runtime measurement'},
       ...this.metrics,
       performanceWindow:this.performanceWindow?.report(),
       averageFps:
@@ -127,6 +128,7 @@ export class DosEngine implements Engine {
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
   }
+  private engineReady=false;
   constructor(
     private canvas: HTMLCanvasElement,
     private log: (text: string) => void,
@@ -286,6 +288,8 @@ export class DosEngine implements Engine {
       window.emulators.backend([bundle], transport),
       failed,
     ]).finally(() => clearTimeout(startupTimer)));
+    if(pinnedWorker&&this.artifact.worker?.bootstrap!=='ready')throw Error('선택 엔진의 Worker 무결성 확인이 완료되지 않았습니다. 안정 엔진으로 대체하지 않습니다.');
+    this.engineReady=true;
     const context = this.canvas.getContext("2d", { alpha: false })!;
     const resize = (w: number, h: number) => {
       if (w < 1 || h < 1) return;

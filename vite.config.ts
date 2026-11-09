@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { unlink } from "node:fs/promises";
 export default defineConfig({
   base: "/porting-pj/ed4/",
-  build: { outDir: "docs/ed4" },
+  build: { outDir: "docs/ed4", rollupOptions:{input:{main:'index.html',update:'update.html'}} },
   define: { "import.meta.env.VITE_INCLUDE_SYNTHETIC_RAW": '"false"' },
   plugins: [{
     name: "manual-pages-without-raw-payloads",

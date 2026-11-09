@@ -1,0 +1,21 @@
+import {describe,it,expect} from 'vitest';
+import {SceneSession,counterDelta,SCENE_LIMITS} from '../src/scene-diagnostics';
+import {validateRelease} from '../src/launcher-update';
+const diagnostic=(n=1,seq=1,source='live-worker-query')=>({identity:{actualEngine:'phase9-8d',status:'verified'},artifact:{id:'phase9-8d',wasmSha256:'abc'},bgmCommands:{source,int66Calls:n,int69Calls:n,rawReads:n,totalRecorded:n,overwritten:0,commands:{'688':n},events:[{sequence:seq,kind:4,command:9,bx:7}]},audioOutput:{adapter:'mono-v1'},music:{bytes:n*4},files:new Uint8Array([123]),samples:new Float32Array([.5])});
+describe('multi-scene bounded metadata',()=>{
+ it('keeps four scenes in one session and computes actual counter deltas',()=>{const s=new SceneSession('phase9-8d');for(const [i,name] of ['타이틀','필드','전투','복귀'].entries())s.capture(name,diagnostic(i+1,i+1));const r=s.report();expect(new Set(r.snapshots.map(x=>x.sessionId)).size).toBe(1);expect(r.snapshots[0].delta.int69).toBeNull();expect(r.snapshots[3].delta.int69).toBe(1);expect(r.snapshots[3].delta.rawBytes).toBe(4);expect(s.serialize()).not.toContain('samples');expect(s.serialize()).not.toContain('"files"');});
+ it('marks ring gaps rather than inventing missing events',()=>{const s=new SceneSession('phase9-8d');s.observe(diagnostic(1,1));s.capture('필드',{...diagnostic(50,50),bgmCommands:{...diagnostic(50,50).bgmCommands,overwritten:49}});expect(s.report().eventArchive.unobservedSequenceCount).toBe(48);expect(s.snapshots[0].loss.nativeOverwritten).toBe(49);});
+ it('preserves first events and bounds late history',()=>{const s=new SceneSession('phase9-8d');for(let n=1;n<=2200;n++)s.observe(diagnostic(n,n));const r=s.report().eventArchive;expect(r.first[0].sequence).toBe(1);expect(r.first.length+r.recent.length).toBe(SCENE_LIMITS.events);expect(r.hostDiscarded).toBe(152);});
+ it('does not interpret stale reports as fresh increments',()=>{const s=new SceneSession('phase9-8d');s.capture('타이틀',diagnostic());s.capture('필드',diagnostic(9,9,'query-timeout-not-current'));expect(s.snapshots[1].delta).toBeNull();s.capture('전투',diagnostic(10,10));expect(s.snapshots[2].delta.int66).toBe(9);});
+ it('marks a counter reset, not a negative increment',()=>{const s=new SceneSession('phase9-8d');s.capture('타이틀',diagnostic(10));s.capture('필드',diagnostic(1));expect(s.snapshots[1].counterReset).toBe(true);expect(counterDelta({a:1},{a:2})).toEqual({a:null});});
+ it('rejects engine mismatch without adding a false successful scene',()=>{const s=new SceneSession('phase9-8d');expect(()=>s.capture('타이틀',{...diagnostic(),identity:{actualEngine:'phase9-7'}})).toThrow('엔진 불일치');expect(s.snapshots.length).toBe(0);});
+ it('does not claim a not-ready engine is verified',()=>{const s=new SceneSession('phase9-8d');s.capture('타이틀',{...diagnostic(),identity:{actualEngine:null,status:'not-ready'}});expect(s.snapshots[0].identityVerified).toBe(false);});
+ it('limits scenes, retains them after end and isolates next session',()=>{const s=new SceneSession('phase9-8d');for(let i=0;i<16;i++)s.capture('필드',diagnostic());expect(()=>s.capture('전투',diagnostic())).toThrow('상한');s.end();expect(()=>s.capture('필드',diagnostic())).toThrow('종료');expect(JSON.parse(s.serialize()).snapshots.length).toBe(16);const next=new SceneSession('phase9-7');expect(next.id).not.toBe(s.id);expect(next.report().snapshots.length).toBe(0);});
+ it('rejects unsupported scene labels',()=>expect(()=>new SceneSession('stable').capture('custom',{})).toThrow('장면'));
+});
+describe('release manifest validation',()=>{
+ const manifest=()=>({format:'ed4-shell-release',version:1,build:{id:'9-8e-test-release'},swSha256:'a'.repeat(64),files:[{path:'index.html',bytes:20,sha256:'b'.repeat(64)}]});
+ it('accepts exact bounded asset metadata',()=>expect(validateRelease(manifest())).toBe(true));
+ it('rejects paths outside the launcher scope',()=>{for(const path of ['../save','/file','https://a/file','x/../y','x//y']){const m=manifest();m.files[0].path=path;expect(validateRelease(m)).toBe(false);}});
+ it('rejects duplicate paths and incomplete hashes',()=>{const m=manifest();m.files.push({...m.files[0]});expect(validateRelease(m)).toBe(false);m.files.pop();m.swSha256='invalid';expect(validateRelease(m)).toBe(false);});
+});

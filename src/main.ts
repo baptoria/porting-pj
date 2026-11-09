@@ -34,6 +34,8 @@ import { measurements, record } from "./telemetry";
 import { PRESETS } from "./presets";
 import { DosEngine } from "./engine";
 import {installPlayUi} from "./play-ui";
+import {installLauncherUpdate} from './launcher-update';
+import {installScenePanel} from './scene-panel';
 import { bindControls, KEY } from "./controls";
 import { importGameZip, importSources } from "./source-import";
 import {
@@ -301,6 +303,8 @@ async function diagnostic() {
   const input = p ? await loadProfile(p) : [];
   return {
     format: "ed4-diagnostics",
+    launcher:launcherUpdate.report(),
+    sceneSession:scenePanel.report(),
     version: 2,
     createdAt: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -706,6 +710,8 @@ async function checkpoint() {
 }
 async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'}) {
   idle();
+  if(launcherUpdate.locked||launcherUpdate.incompatible)throw Error('실행기 업데이트 중이거나 코드/서비스 워커 버전이 다릅니다. 업데이트 상태를 확인하세요. 게임 데이터는 유지됩니다.');
+  scenePanel.start(traceOptions?.experimentalEngine??'stable');
   window.dispatchEvent(new Event("ed4-release-input"));
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
@@ -771,6 +777,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     }
     const bundle = await buildRuntime(p, input, save, temporary,traceOptions?.environment);
     await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true}:undefined);
+    scenePanel.ready();
     running = structuredClone(p);
     paused = false;
     $("#empty-screen").hidden = true;
@@ -781,6 +788,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     $('#stop').textContent=diagnosticRun?'진단 종료 (저장 안 함)':'저장 후 종료';
     status(diagnosticRun?'임시 진단 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
   } catch (e) {
+    scenePanel.end();
     lastEngineMetrics=engine?.diagnostics(); // Retain early WASM failures after cleanup.
     await engine?.stop();
     engine = undefined;
@@ -800,6 +808,7 @@ on("#pause", async () => {
 on("#stop", async () => {
   if (!engine) return;
   await checkpoint();
+  scenePanel.end();
   lastEngineMetrics = engine.diagnostics();
   await engine.stop();
   engine = undefined;
@@ -1181,8 +1190,11 @@ function download(data: Uint8Array, name: string) {
   const a = document.createElement("a");
   a.href = url;
   a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  document.body.append(a);
+  try { a.click(); } finally {
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
 }
 on("#backup", async () => {
   const p = current();
@@ -1434,6 +1446,7 @@ async function init() {
     try {
       await navigator.serviceWorker.register(
         `${import.meta.env.BASE_URL}sw.js`,
+        {updateViaCache:'none'},
       );
       await navigator.serviceWorker.ready;
       $("#offline").textContent = "오프라인 준비 완료";
@@ -1560,4 +1573,7 @@ void init().catch((e) => status(storageError(e), true));
 
 // Phase 9-8: UI preferences are separate from profiles/saves/legacy controls.
 const playUiSnapshot=installPlayUi($("#play-area"));
+$('#advanced-content').insertAdjacentHTML('afterbegin','<section id="launcher-update"></section>');
+const launcherUpdate=installLauncherUpdate($('#launcher-update'),()=>!!engine||!!running||busy);
+const scenePanel=installScenePanel($('.player-toolbar'),()=>engine,download);
 for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelectElement>('#'+id);field.disabled=true;field.title='기존 설정은 보존됩니다. ED4 오버레이는 Enter/ESC 고정입니다.';}

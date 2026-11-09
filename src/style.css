@@ -1052,6 +1052,10 @@ body:not(.running) .player-toolbar { order:-1; border-bottom:1px solid var(--lin
 #speed-toggle:disabled { opacity:.45; cursor:not-allowed; }
 #speed-toggle[aria-pressed=true] { background:#aa781c; border-color:#ffd16d; }
 #immersive-close { display:none; }
+#scene-panel { width:100%; font-size:12px; }
+#scene-panel label { display:inline-flex; align-items:center; gap:8px; margin:6px 8px 6px 0; }
+#scene-name { width:auto; min-width:100px; }
+#scene-status { margin:6px 0 0; overflow-wrap:anywhere; }
 #speed-limit { font-size:12px; width:100%; padding:8px; color:#f3d7a4; }
 #play-ui-dialog { max-height:85dvh; width:min(440px,90vw); overflow:auto; }
 #play-ui-dialog label { display:block; margin:10px 0; }
