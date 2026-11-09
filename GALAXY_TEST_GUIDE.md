@@ -1,6 +1,19 @@
 # Galaxy 실제 게임 등록·실행 안내
 
-## Phase 9-4: 최초 주소·모드 관측 (현재 시험)
+## Phase 9-5A: 같은 엔진에서 믹서 설정 한 가지 비교 (현재 시험)
+
+Debug 성공 당시의 정확한 CONF는 아직 미확인입니다. 이번 비교는 기록이 남은 run02의 `mixer.nosound=true`만 시험하며, 게임 실행 성공이나 해결을 보장하지 않습니다. 게임·RAW를 다시 등록하거나 사이트 데이터를 삭제하지 마세요.
+
+1. 사용자가 새 `docs/ed4/`를 Commit/Push한 뒤 온라인에서 기존 탭/PWA를 닫고 다시 열어 업데이트합니다.
+2. 기존 실패 프로필의 **BAT 실행 순서 · 임시 진단**을 엽니다. 엔진은 **Phase 9-4**, 비교 항목은 **PC 환경 기준: 현재 설정 · 믹서 출력 켬**으로 선택합니다. 기존 GAME.BAT·CPU·메모리·사운드·RAW를 유지합니다.
+3. 기존 실패 지점까지 기다려 진단 JSON을 받고 **저장하지 않는 진단 종료**를 누릅니다.
+4. 같은 프로필과 같은 **Phase 9-4** 엔진을 다시 선택하고 **PC 환경 비교: mixer.nosound=true만 변경**으로 시험합니다. NOSOUND.BAT 선택과는 다른 시험입니다. JSON을 별도로 받습니다.
+5. 두 JSON의 `engine.artifact` 실제 WASM 해시가 모두 `13d96ce65d9370acf4a2c3f99a7723872ef6dae193ca4ffdd4944e526a7d3738`인지 확인합니다. `bootSettings.environment`의 파일 해시와 BEFORE/AFTER 속성, 기존 first CPU anchors를 함께 전달합니다. AFTER가 없으면 임의로 채우지 않습니다.
+6. ED4/DRIVER/LOGO/SOUNDRV 해시를 PC 기록과 먼저 비교합니다. 파일이 다르더라도 자동 교체하지 않습니다. 첫 RETF가 그대로 FFFF:FFFF이면 이 설정을 해결책으로 채택하지 않습니다.
+
+선택은 저장되지 않고 다시 열면 안정 엔진으로 돌아갑니다. 진단 세션의 저장 변경분은 폐기합니다. 실제 게임 시험은 Galaxy에서만 진행합니다. 상세 근거와 한계는 [PHASE9_5A_ENV_COMPARISON.md](PHASE9_5A_ENV_COMPARISON.md)에 있습니다.
+
+## Phase 9-4: 최초 주소·모드 관측
 
 사용자가 Phase 9-3에서 ED4.EXE 첫 명령과 Reset Vector 진입까지 확인했다. **Phase 9-4의 Galaxy 시험과 게임 정상 실행은 아직 미검증**이다. 아래 이전 절차는 과거 시험 기록으로 남긴다.
 

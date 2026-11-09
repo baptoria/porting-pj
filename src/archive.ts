@@ -1,3 +1,4 @@
+import {environmentNosound,type EnvironmentMode} from './environment-comparison';
 import { unzipSync, zipSync, strToU8 } from "fflate";
 import type { Archive, ArchiveAnalysis, Files, Profile, Save } from "./model";
 import { deletedFiles, overlayFiles, normalizeSave } from "./save-state";
@@ -117,7 +118,7 @@ export function validateExecutable(executable: string, files: Files) {
       "실행 파일과 상위 폴더는 명령 문자가 없는 DOS 8.3 이름이어야 합니다. ZIP의 폴더 구조를 확인하세요.",
     );
 }
-export function dosConfig(profile: Profile): string {
+export function dosConfig(profile: Profile, environment?:EnvironmentMode): string {
   const s = profile.settings;
   if (
     !Number.isInteger(s.cycles) ||
@@ -129,7 +130,7 @@ export function dosConfig(profile: Profile): string {
     throw new Error("DOSBox 설정 범위를 확인하세요.");
   const parts = profile.executable.split("/");
   const exe = parts.pop()!;
-  return `[sdl]\nautolock=false\n[dosbox]\nmachine=svga_s3\nmemsize=${s.memory}\n[render]\nframeskip=0\n[cpu]\ncore=auto\ncputype=auto\ncycles=${s.cycles}\n[mixer]\nrate=22050\nblocksize=1024\nprebuffer=30\n[sblaster]\nsbtype=${s.sound}\nsbbase=220\nirq=7\ndma=1\nhdma=5\noplmode=auto\noplemu=default\noplrate=22050\n[midi]\nmpu401=none\nmididevice=none\n[autoexec]\n@echo off\nmount c .\nc:\n${parts.length ? `cd ${parts.join("\\")}\n` : ""}${s.prelude.trim()}\n${exe}\n`;
+  return `[sdl]\nautolock=false\n[dosbox]\nmachine=svga_s3\nmemsize=${s.memory}\n[render]\nframeskip=0\n[cpu]\ncore=auto\ncputype=auto\ncycles=${s.cycles}\n[mixer]\n${environment ? `nosound=${environmentNosound(environment)}\n` : ""}rate=22050\nblocksize=1024\nprebuffer=30\n[sblaster]\nsbtype=${s.sound}\nsbbase=220\nirq=7\ndma=1\nhdma=5\noplmode=auto\noplemu=default\noplrate=22050\n[midi]\nmpu401=none\nmididevice=none\n[autoexec]\n@echo off\nmount c .\nc:\n${parts.length ? `cd ${parts.join("\\")}\n` : ""}${s.prelude.trim()}\n${exe}\n`;
 }
 export function buildBundle(
   profile: Profile,
@@ -137,6 +138,7 @@ export function buildBundle(
   saves: Files = {},
   deleted: string[] = [],
   temporary: Files = {},
+  environment?: EnvironmentMode,
 ): Uint8Array {
   const get = (key: string) => {
     const a = archives.find((a) => a.id === key);
@@ -158,7 +160,7 @@ export function buildBundle(
   }
   validateTree(files);
   validateExecutable(profile.executable, files);
-  files[".jsdos/dosbox.conf"] = strToU8(dosConfig(profile));
+  files[".jsdos/dosbox.conf"] = strToU8(dosConfig(profile, environment));
   return zipSync(files, { level: 1 });
 }
 
@@ -199,8 +201,9 @@ export function createRuntime(
   archives: Archive[],
   save?: Save,
   temporary: Files = {},
+  environment?: EnvironmentMode,
 ) {
   checkRequirements(profile, archives);
   if (save) save = normalizeSave(save);
-  return buildBundle(profile, archives, overlayFiles(save), deletedFiles(save), temporary);
+  return buildBundle(profile, archives, overlayFiles(save), deletedFiles(save), temporary, environment);
 }

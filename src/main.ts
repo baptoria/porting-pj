@@ -1,3 +1,4 @@
+import {EnvironmentObservation,observeEnvironmentBatch,executableIdentities,type EnvironmentMode} from './environment-comparison';
 import "./style.css";
 import {
   compose,
@@ -85,7 +86,8 @@ let lastEngineMetrics: ReturnType<DosEngine["diagnostics"]> | undefined;
 let lastError = "";
 let diagnosticRun=false;
 let bootTrace:BootTrace|undefined;
-let bootSettings:{profileId:string;original:DosSettings;comparison:DosSettings;config:string;runtimeComparison?:{mode:ComparisonMode;entry:string;rawMounted:boolean;mountedFiles:number;baselineEntry?:string;changedFactor?:string}}|undefined;
+let environmentObservation:EnvironmentObservation|undefined;
+let bootSettings:{environment?:{id:EnvironmentMode;requestedNosound:boolean;observations:EnvironmentObservation["samples"];files:Awaited<ReturnType<typeof executableIdentities>>;note:string};profileId:string;original:DosSettings;comparison:DosSettings;config:string;runtimeComparison?:{mode:ComparisonMode;entry:string;rawMounted:boolean;mountedFiles:number;baselineEntry?:string;changedFactor?:string}}|undefined;
 
 $("#app").innerHTML = `
 <header class="topbar"><a class="brand" href="./"><span class="brand-mark">E<span>4</span></span><span>ED4 <b>MOBILE</b><small>PERSONAL DOS LIBRARY</small></span></a><div class="header-right"><span class="phase">PHASE 02</span><span id="offline" class="badge">온라인 준비</span><button id="install" class="quiet">앱 설치</button></div></header>
@@ -699,7 +701,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'}) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'}) {
   idle();
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
@@ -709,13 +711,13 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     });
   let p = current();
   diagnosticRun=!!traceOptions;
-  bootTrace=undefined;bootSettings=undefined;
+  bootTrace=undefined;bootSettings=undefined;environmentObservation=undefined;
   lastEngineMetrics=undefined;
   $('#trace-status').textContent=diagnosticRun?'진단 마커 대기':'';
   logs.length = 0;
   $('#logs').textContent='엔진 시작 대기';
   engine = new DosEngine($<HTMLCanvasElement>("#canvas"), log, text=>{
-    if(diagnosticRun){bootTrace?.accept(text);renderBootStatus();}
+    if(diagnosticRun){bootTrace?.accept(text);environmentObservation?.accept(text);renderBootStatus();}
   });
   engine.activateAudio();
   engine.setVolume(Number($<HTMLInputElement>("#volume").value) / 100);
@@ -754,10 +756,16 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
       bootTrace=new BootTrace(plan);
       p={...p,executable:plan.executable,settings:{...traceOptions.settings,prelude:''}};
       temporary=plan.generated;
-      bootSettings={profileId:current().id,original:{...current().settings},comparison:{...traceOptions.settings},config:dosConfig(p),
+      bootSettings={profileId:current().id,original:{...current().settings},comparison:{...traceOptions.settings},config:dosConfig(p,traceOptions.environment),
         runtimeComparison:{mode:traceOptions.mode??'manual',entry:traceOptions.entry,rawMounted:traceOptions.rawMounted!==false,mountedFiles:mountedMusic.length,baselineEntry:traceOptions.baselineEntry,changedFactor:traceOptions.changedFactor}};
     }
-    const bundle = await buildRuntime(p, input, save, temporary);
+    if(traceOptions?.environment&&bootSettings){
+      environmentObservation=new EnvironmentObservation();
+      const effective={...layerFiles(p,input)};for(const path of deletedFiles(save))delete effective[path];Object.assign(effective,overlayFiles(save));
+      bootSettings.environment={id:traceOptions.environment,requestedNosound:traceOptions.environment==='pc-mixer-nosound',observations:environmentObservation.samples,files:await executableIdentities(effective,traceOptions.entry),note:'CONFIG -get samples are before entry and after return only; absent AFTER means unobserved. Guest CONFIG environment variable is set equally in both trials. Later guest commands can override cycles. Hashes describe effective files, not an authenticated original installation.'};
+      temporary=observeEnvironmentBatch(temporary,p.executable);
+    }
+    const bundle = await buildRuntime(p, input, save, temporary,traceOptions?.environment);
     await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true}:undefined);
     running = structuredClone(p);
     paused = false;
@@ -1462,8 +1470,9 @@ $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="d
 <p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
 <label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option></select></label>
 <p>실험 엔진은 재부팅 진입 경로·CPU 상태를 기록합니다. 원래 abort() 오류는 유지됩니다. 엔진만 바꾸고 BAT·CPU·메모리·음악 조건은 먼저 그대로 비교하세요. 닫거나 종료하면 안정 엔진으로 돌아갑니다.</p>
-<label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option></select></label>
+<label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option><option value="pc-baseline">PC 환경 기준: 현재 설정 · 믹서 출력 켬</option><option value="pc-mixer-nosound">PC 환경 비교: mixer.nosound=true만 변경</option></select></label>
 <p>WASM 비교 3종은 현재 CPU·메모리를 유지하고 동일 SB16을 사용합니다. 기준 결과부터 수집하고 한 번에 BAT 또는 RAW 마운트 하나만 비교하세요. RAW 생략은 OPFS 연결 음악에만 적용되며 본체 파일을 삭제하지 않습니다. NOSOUND의 실제 명령 순서를 먼저 확인하세요.</p>
+<p>PC 환경 비교는 같은 엔진에서 기준을 먼저 실행한 뒤 mixer.nosound 하나만 바꿉니다. SB16·BAT·CPU·RAW는 유지하며 저장하지 않습니다. CONFIG 조회와 실행 파일 해시는 진단 JSON에 남깁니다. 이는 Debug 성공 설정의 확정 복원이 아닌 run02 기록에 근거한 후보입니다.</p>
 <label>실제 등록된 실행 파일<select id="boot-entry"></select></label>
 <p>NOSOUND.BAT가 있을 때 아래 실제 명령 순서를 먼저 확인하고 비교하세요. 이름만으로 무음 동작을 보장하지 않습니다. 한글 로더·CD 필요 여부는 참조 증거로만 판단합니다.</p>
 <pre id="boot-analysis"></pre>

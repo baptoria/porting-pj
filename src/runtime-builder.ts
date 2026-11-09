@@ -1,3 +1,4 @@
+import type {EnvironmentMode} from './environment-comparison';
 import type { Archive, Profile, Save, Files } from "./model";
 import { overlayFiles } from "./save-state";
 import { record } from "./telemetry";
@@ -6,6 +7,7 @@ export async function buildRuntime(
   archives: Archive[],
   save?: Save,
   temporary: Files = {},
+  environment?:EnvironmentMode,
 ): Promise<Uint8Array> {
   const buffers = [
     ...archives.flatMap((a) => Object.values(a.files)),
@@ -48,7 +50,7 @@ export async function buildRuntime(
         ),
       );
     };
-    worker.postMessage({ profile, archives, save, temporary }, [
+    worker.postMessage({ profile, archives, save, temporary, environment }, [
       ...new Set(buffers.map((b) => b.buffer as ArrayBuffer)),
     ]);
   });
