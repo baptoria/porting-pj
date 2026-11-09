@@ -10,7 +10,7 @@ for (const dir of ["src", "scripts", "tests", "licenses"]) await add(dir);
 for (const name of await readdir("."))
   if (
     /\.(json|ts|md)$/.test(name) ||
-    ["LICENSE", ".gitignore", "index.html"].includes(name)
+    ["LICENSE", ".gitignore", ".gitattributes", "index.html"].includes(name)
   )
     await add(name);
 for (const name of [
@@ -18,6 +18,7 @@ for (const name of [
   "public/.nojekyll",
   "public/icon.svg",
   "public/dos-worker.js",
+  "public/dos-worker-phase9-2.js",
   "public/licenses/NOTICE.html",
 ])
   await add(name);

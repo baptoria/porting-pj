@@ -8,6 +8,8 @@ import { readZip } from "./archive";
 import type { MusicMount } from "./music";
 import { DosObservation } from './dos-observation';
 import { RuntimeErrors, diagnosticText } from './runtime-errors';
+import { RebootObservation } from './reboot-observation';
+import { prepareRebootEngine, REBOOT_ENGINE } from './experimental-engine';
 declare global {
   interface Window {
     emulators: Emulators;
@@ -61,6 +63,9 @@ export class DosEngine implements Engine {
   private startedAt = performance.now();
   private observation=new DosObservation();
   private runtimeErrors=new RuntimeErrors();
+  private reboot=new RebootObservation();
+  private experimental=false;
+  private artifact:{id:string;emulators:string;wasmSha256?:string;expectedSha256?:string;verification:string;sourceCommit:string}={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
   musicMetrics?: {
     reads: number;
     bytes: number;
@@ -78,7 +83,8 @@ export class DosEngine implements Engine {
       music: this.musicMetrics,
       execution: this.observation.report(),
       runtimeErrors:this.runtimeErrors.report(),
-      artifact:{emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'},
+      artifact:{...this.artifact},
+      reboot:this.reboot.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -100,22 +106,38 @@ export class DosEngine implements Engine {
   setVolume(volume: number) {
     if (this.gain) this.gain.gain.value = volume;
   }
-  async start(bundle: Uint8Array, music: MusicMount[] = []) {
+  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:'phase9-2';discardWrites:true}) {
     this.startedAt = performance.now();
     this.observation=new DosObservation();
     this.runtimeErrors=new RuntimeErrors();
+    this.reboot=new RebootObservation();
+    this.experimental=false;
+    this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
+    let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
+    if(experiment){
+      if(experiment.id!=='phase9-2'||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      this.experimental=true;
+      this.artifact={...this.artifact,id:'phase9-2',wasmSha256:undefined,expectedSha256:REBOOT_ENGINE.wasmSha256,verification:'not-yet-verified'};
+      try{verified=await prepareRebootEngine();}
+      catch(e){this.runtimeErrors.record('experimental-engine-load',{name:'Error',message:String(e)});throw e;}
+      this.artifact={...this.artifact,wasmSha256:verified.sha256,verification:'sha256-of-compiled-module'};
+    }
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
     const worker = (this.worker = new Worker(
-      `${import.meta.env.BASE_URL}dos-worker.js`,
+      `${import.meta.env.BASE_URL}${this.experimental?'dos-worker-phase9-2.js':'dos-worker.js'}`,
     ));
     const sessionId = crypto.randomUUID();
     let handler: MessageHandler | undefined;
     let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-reboot-event'){
+        if(this.experimental){const e=this.reboot.accept(event.data.props);if(e?.kind==='reboot-handler')this.log(`BIOS 재부팅 진입: ${e.route} · CPU 상태를 진단 JSON에 기록했습니다. 게임 초기화 성공을 뜻하지 않습니다.`);}
+        return;
+      }
       if(event.data?.name==='ed4-runtime-error'){
         const source=['worker-error','unhandledrejection','factory-rejection','factory-exception','emscripten-abort'].includes(event.data.props?.source)?event.data.props.source:'worker-report';
         const failure=this.runtimeErrors.record(source,event.data.props);
@@ -157,7 +179,7 @@ export class DosEngine implements Engine {
     };
     worker.postMessage({
       name: "wc-install",
-      props: { sessionId, ed4Music: music },
+      props: { sessionId, ed4Music: music, ...(verified?{module:verified.module}:{}) },
     });
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     const failed = new Promise<never>((_, reject) => {
@@ -270,6 +292,7 @@ export class DosEngine implements Engine {
     this.nextAudio = 0;
   }
   async save(): Promise<Snapshot> {
+    if(this.experimental)throw Error('실험 진단의 변경분은 저장하지 않습니다. 기존 세이브는 유지됩니다.');
     if (!this.ci) throw new Error("실행 중인 DOS 세션이 없습니다.");
     this.snapshotInfo = undefined;
     this.snapshotError = undefined;

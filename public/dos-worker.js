@@ -169,9 +169,15 @@ self.postMessage = function (message, transfer) {
   return send(message, transfer);
 };
 runtimeStage = 'import-engine';
-importScripts("./vendor/wdosbox.js");
+const selectedEngine = self.ed4DiagnosticEngine;
+if(selectedEngine && selectedEngine!=='phase9-2')throw Error('Unknown diagnostic engine');
+const engineDirectory = selectedEngine==='phase9-2'?'./vendor/experimental/phase9-2/':'./vendor/';
+importScripts(engineDirectory + "wdosbox.js");
 const originalFactory = WDOSBOX;
 WDOSBOX = function (options) {
+  // The experiment must execute the exact module hashed by the parent, never
+  // silently fall back to a second network fetch or the stable vendor path.
+  if(selectedEngine==='phase9-2' && typeof options.instantiateWasm!=='function')throw Error('Verified diagnostic WASM module required');
   runtimeStage = 'factory';
   runtime = options;
   const priorAbort = options.onAbort;
@@ -180,7 +186,7 @@ WDOSBOX = function (options) {
     if (priorAbort) priorAbort(reason);
   };
   options.locateFile = (path) =>
-    new URL("./vendor/" + path, self.location.href).href;
+    new URL(engineDirectory + path, self.location.href).href;
   const prior = options.preRun;
   options.preRun = [
     ...(typeof prior === "function" ? [prior] : (prior ?? [])),

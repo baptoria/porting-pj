@@ -113,4 +113,5 @@ for (const size of [192, 512]) {
     ]),
   );
 }
+await import('./prepare-phase9-2-assets.mjs');
 console.log("Prepared local emulator, licenses, icons, and CC0 DOS test ZIP.");

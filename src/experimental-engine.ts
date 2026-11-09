@@ -1,0 +1,14 @@
+export const REBOOT_ENGINE={id:'phase9-2',wasmSha256:'d9278a71b7b63ea3f461847ca9a3974df054f65c4c280aea7f5811981e0a46fc',
+ directory:'vendor/experimental/phase9-2/'} as const;
+export async function verifiedModule(bytes:ArrayBuffer,expected:string){
+ const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+ if(sha256!==expected)throw Error(`실험 엔진 SHA-256 불일치 (${sha256}). 실행을 중단했습니다. 온라인에서 앱 업데이트 후 다시 시도하세요. 기존 게임·저장은 유지됩니다.`);
+ return {module:await WebAssembly.compile(bytes),sha256};
+}
+export async function prepareRebootEngine(){
+ const response=await fetch(`${import.meta.env.BASE_URL}${REBOOT_ENGINE.directory}wdosbox.wasm`,{signal:AbortSignal.timeout(30000)});
+ if(!response.ok)throw Error(`실험 엔진 파일을 불러오지 못했습니다 (${response.status}). 온라인에서 업데이트하거나 안정 엔진을 선택하세요.`);
+ const bytes=await response.arrayBuffer();
+ if(bytes.byteLength>4*1024*1024)throw Error('실험 엔진 크기가 예상 범위를 벗어났습니다. 실행을 중단했습니다.');
+ return verifiedModule(bytes,REBOOT_ENGINE.wasmSha256);
+}

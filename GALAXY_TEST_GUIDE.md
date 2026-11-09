@@ -1,6 +1,30 @@
 # Galaxy 실제 게임 등록·실행 안내
 
-2026-11-09 / Phase 7 (0.5.0 + phase7-runtime-1).
+2026-11-09 / Phase 9-2. 앱 0.5.0 및 기존 `phase7-runtime-1` 표기는 유지하며, 실험 진단은 `engine.reboot.revision=phase9-2-reboot-1`로 구별한다.
+
+## Phase 9-2: BIOS 재부팅 원인 수집
+
+공개 시험은 통과했지만 **영웅전설4의 실제 재부팅 원인은 아직 미확정**이다. 이번 실험은 게임 오류를 고치거나 재부팅을 정상 종료로 바꾸지 않는다. 기존 게임·RAW·세이브를 다시 등록할 필요가 없다.
+
+1. 사용자가 GitHub Desktop으로 소스와 `docs/ed4/`를 Commit·Push한다. Pages 경로는 `/porting-pj/ed4/` 그대로다. 기존 탭/PWA를 모두 닫고 온라인에서 다시 열어 업데이트한다. 사이트 데이터 삭제는 하지 않는다. 이 개발 작업에서는 업로드하거나 실제 HTTPS 배포 완료를 확인하지 않았다.
+2. 이미 폴더 등록에 성공했던 프로필을 선택한다. **설정 · 백업 → BAT 실행 순서 · 임시 진단**을 연다. **이번 진단의 엔진**이 `기존 안정 엔진 (기본값)`인지 확인한다.
+3. 먼저 현재 GAME.BAT 및 기존 CPU·메모리·사운드·RAW 설정을 그대로 둔 기준 진단을 기록한다. 이미 같은 조건의 기준 JSON이 있으면 재사용할 수 있다. **WASM 비교 진단은 ‘기존 수동 진단’으로 두어** SB16 등 다른 값을 함께 바꾸지 않는다.
+4. 진단 종료 후 같은 메뉴에서 엔진만 **실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함**으로 선택하고 임시 진단을 실행한다. 원본 BAT는 변경되지 않고 기존 임시 마커만 사용한다. 원래의 `Aborted()` 오류가 나타날 수 있으며 정상 게임 실행을 의미하지 않는다.
+5. 화면이 멈추거나 오류가 발생하면 **진단 JSON**, **화면 PNG**를 내려받는다. 다음 실행 전 내려받아야 한다. JSON에서 아래 값을 확인한다.
+   - `engine.artifact.id`: `phase9-2`
+   - `engine.artifact.verification`: `sha256-of-compiled-module`
+   - `engine.artifact.wasmSha256`: `d9278a71b7b63ea3f461847ca9a3974df054f65c4c280aea7f5811981e0a46fc`
+   - `engine.reboot.firstReboot.route`: `int18`, `int19`, `reset-vector` 또는 `unknown`
+   - `engine.reboot.preTransfer`: 관측된 전이 직전 CPU 상태. 없으면 추정하지 않는다.
+   - `engine.reboot.events`: EXEC 요청/로더 결과, reset 진입, 핸들러 진입, 원래 abort 직전 순서.
+6. **진단 종료 (저장 안 함)**으로 끝낸다. 일반 **게임 실행**과 다음 진단 메뉴의 기본값은 다시 안정 엔진이다. 실험 중 생성·삭제된 파일은 영구 저장하지 않는다. 기존 세이브와 RAW는 유지한다. 응답이 완전히 없으면 JSON/기기 캡처 확보 후 탭을 닫고 다시 연다.
+7. 필요할 때에만 실험 엔진을 다시 명시적으로 선택하고 NOSOUND.BAT 또는 RAW 마운트 한 조건씩 비교한다. 기존 Phase 7의 비교 3종은 SB16을 사용하므로 기존 카드 설정이 다르면 먼저 별도의 SB16 기준을 기록해야 한다. 원본 파일 추가·삭제·치환은 하지 않는다.
+
+함께 전달할 항목: Galaxy 모델, Chrome 버전, GAME/NOSOUND 여부, RAW 마운트 여부, 오류까지 걸린 시간, 위 JSON과 화면. 메모리 덤프나 게임 파일은 보내지 않는다. `loader-prepared`는 DOS 로더의 반환 결과이며 ED4 초기화 성공이 아니다. `unknown`은 사용자 실패가 아니라 계측이 직접 경로를 입증하지 못했다는 뜻이다. 보호 모드·사용자 인터럽트 벡터·다른 CPU core·중간 인터럽트 등이 원인일 수 있다. 자세한 판단 범위는 `PHASE9_2_REBOOT_REPORT.md`를 참고한다.
+
+## 이전 Phase 7 절차와 당시 관측
+
+아래는 당시의 스택 수집 절차다. 이후 공개 재현에서 Reboot_Handler Asyncify 누락은 Phase 9-1로 보완됐지만, 게임이 BIOS 경로에 진입한 이유는 아직 미확정이다.
 
 ## Phase 7: null function 스택 수집 우선
 

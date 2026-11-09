@@ -1,0 +1,7 @@
+# Reviewed experimental engine hashes must survive Git Desktop/Pages unchanged.
+/docs/ed4/vendor/experimental/phase9-2/* -text
+/public/sources/emulators-0.73.8-phase9-2-source.zip -text
+/docs/ed4/sources/emulators-0.73.8-phase9-2-source.zip -text
+# Reproduce WSL builds and native observation template bytes on Windows.
+/scripts/*.sh text eol=lf
+/scripts/phase9-2/* text eol=lf

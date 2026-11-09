@@ -699,7 +699,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string}) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;experimentalEngine?:boolean}) {
   idle();
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
@@ -758,7 +758,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
         runtimeComparison:{mode:traceOptions.mode??'manual',entry:traceOptions.entry,rawMounted:traceOptions.rawMounted!==false,mountedFiles:mountedMusic.length,baselineEntry:traceOptions.baselineEntry,changedFactor:traceOptions.changedFactor}};
     }
     const bundle = await buildRuntime(p, input, save, temporary);
-    await engine.start(bundle, mountedMusic);
+    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:'phase9-2',discardWrites:true}:undefined);
     running = structuredClone(p);
     paused = false;
     $("#empty-screen").hidden = true;
@@ -1460,6 +1460,8 @@ $('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">
 $('#play-area').insertAdjacentHTML('afterbegin','<div id="trace-status" role="status"></div>');
 $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="dialog-heading"><h2>임시 실행 추적</h2><button id="boot-close">닫기</button></div>
 <p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
+<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option></select></label>
+<p>실험 엔진은 재부팅 진입 경로·CPU 상태를 기록합니다. 원래 abort() 오류는 유지됩니다. 엔진만 바꾸고 BAT·CPU·메모리·음악 조건은 먼저 그대로 비교하세요. 닫거나 종료하면 안정 엔진으로 돌아갑니다.</p>
 <label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option></select></label>
 <p>WASM 비교 3종은 현재 CPU·메모리를 유지하고 동일 SB16을 사용합니다. 기준 결과부터 수집하고 한 번에 BAT 또는 RAW 마운트 하나만 비교하세요. RAW 생략은 OPFS 연결 음악에만 적용되며 본체 파일을 삭제하지 않습니다. NOSOUND의 실제 명령 순서를 먼저 확인하세요.</p>
 <label>실제 등록된 실행 파일<select id="boot-entry"></select></label>
@@ -1511,6 +1513,7 @@ on('#boot-open',async()=>{
   $<HTMLSelectElement>('#boot-memory').value=String(p.settings.memory);
   $<HTMLSelectElement>('#boot-sound').value=p.settings.sound;
   $<HTMLSelectElement>('#boot-comparison').value='manual';
+  $<HTMLSelectElement>('#boot-engine').value='stable';
   for(const id of ['#boot-entry','#boot-cycles','#boot-memory','#boot-sound'])$<HTMLInputElement>(id).disabled=false;
   showBootAnalysis();$<HTMLDialogElement>('#boot-dialog').showModal();
 });
@@ -1519,8 +1522,10 @@ on('#boot-start',async()=>{
   const settings:DosSettings={...current().settings,cycles:Number($<HTMLInputElement>('#boot-cycles').value),memory:Number($<HTMLSelectElement>('#boot-memory').value),sound:$<HTMLSelectElement>('#boot-sound').value as DosSettings['sound']};
   dosConfig({...current(),settings}); // validate before closing or starting
   const comparison=selectedComparison();
+  const experimentalEngine=$<HTMLSelectElement>('#boot-engine').value==='phase9-2';
+  $<HTMLSelectElement>('#boot-engine').value='stable';
   $<HTMLDialogElement>('#boot-dialog').close();bootFiles={};
-  await startGame(comparison??{entry,settings,mode:'manual'});
+  await startGame({...comparison??{entry,settings,mode:'manual'},experimentalEngine});
 });
 on('#screen-export',async()=>{
   const blob=await new Promise<Blob|null>(resolve=>$<HTMLCanvasElement>('#canvas').toBlob(resolve,'image/png'));
