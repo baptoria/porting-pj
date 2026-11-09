@@ -10,6 +10,8 @@ import { DosObservation } from './dos-observation';
 import { RuntimeErrors, diagnosticText } from './runtime-errors';
 import { RebootObservation } from './reboot-observation';
 import { CpuHistory } from './cpu-history';
+import { FirstAnomaly } from './first-anomaly';
+import { PHASE94_WORKER } from './generated/phase9-4-worker';
 import { PHASE93_WORKER } from './generated/phase9-3-worker';
 import { prepareRebootEngine, experimentalEngine, type ExperimentalEngineId } from './experimental-engine';
 declare global {
@@ -67,6 +69,7 @@ export class DosEngine implements Engine {
   private runtimeErrors=new RuntimeErrors();
   private reboot=new RebootObservation();
   private cpuHistory=new CpuHistory();
+  private firstAnomaly=new FirstAnomaly();
   private experimental=false;
   private artifact:{id:string;emulators:string;wasmSha256?:string;expectedSha256?:string;verification:string;sourceCommit:string;worker?:{entry:string;common:string;expectedSha256:string;revision:string;bootstrap:'pending'|'ready'|'failed'}}={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
   musicMetrics?: {
@@ -88,7 +91,7 @@ export class DosEngine implements Engine {
       runtimeErrors:this.runtimeErrors.report(),
       artifact:{...this.artifact},
       reboot:this.reboot.report(),
-      cpuHistory:this.cpuHistory.report(),
+      cpuHistory:this.artifact.id==='phase9-4'?this.firstAnomaly.report():this.cpuHistory.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -116,11 +119,12 @@ export class DosEngine implements Engine {
     this.runtimeErrors=new RuntimeErrors();
     this.reboot=new RebootObservation();
     this.cpuHistory=new CpuHistory();
+    this.firstAnomaly=new FirstAnomaly();
     this.experimental=false;
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(!['phase9-2','phase9-3'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      if(!['phase9-2','phase9-3','phase9-4'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=true;
       this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
       try{verified=await prepareRebootEngine(experiment.id);}
@@ -129,11 +133,12 @@ export class DosEngine implements Engine {
     }
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
-    if(experiment?.id==='phase9-3')this.artifact.worker={entry:PHASE93_WORKER.entry,common:PHASE93_WORKER.common,expectedSha256:PHASE93_WORKER.sha256,revision:PHASE93_WORKER.revision,bootstrap:'pending'};
+    const pinnedWorker=experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
+    if(pinnedWorker)this.artifact.worker={entry:pinnedWorker.entry,common:pinnedWorker.common,expectedSha256:pinnedWorker.sha256,revision:pinnedWorker.revision,bootstrap:'pending'};
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
     const worker = (this.worker = new Worker(
-      `${import.meta.env.BASE_URL}${experiment?.id==='phase9-3'?PHASE93_WORKER.entry:experiment?`dos-worker-${experiment.id}.js`:'dos-worker.js'}`,
+      `${import.meta.env.BASE_URL}${pinnedWorker?pinnedWorker.entry:experiment?`dos-worker-${experiment.id}.js`:'dos-worker.js'}`,
     ));
     const sessionId = crypto.randomUUID();
     let handler: MessageHandler | undefined;
@@ -141,12 +146,12 @@ export class DosEngine implements Engine {
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
       if(event.data?.name==='ed4-worker-bootstrap'){
-        if(experiment?.id==='phase9-3'&&this.artifact.worker){
+        if(pinnedWorker&&this.artifact.worker){
           const p=event.data.props;
-          if(p?.revision===PHASE93_WORKER.revision&&p?.common===PHASE93_WORKER.common&&p?.sha256===PHASE93_WORKER.sha256)this.artifact.worker.bootstrap='ready';
+          if(p?.revision===pinnedWorker.revision&&p?.common===pinnedWorker.common&&p?.sha256===pinnedWorker.sha256)this.artifact.worker.bootstrap='ready';
           else {
             this.artifact.worker.bootstrap='failed';
-            const message='Phase 9-3 Worker 버전 불일치: 온라인에서 실행기 탭/PWA를 모두 닫고 업데이트하세요. 기존 데이터는 유지됩니다.';
+            const message='실험 Worker 버전 불일치: 온라인에서 실행기 탭/PWA를 모두 닫고 업데이트하세요. 기존 데이터는 유지됩니다.';
             this.runtimeErrors.record('worker-bootstrap',{name:'Error',message,stage:'import-common-worker'});
             this.observation.error(message);this.log(message);worker.terminate();rejectStartup?.(new Error(message));
           }
@@ -154,7 +159,7 @@ export class DosEngine implements Engine {
         return;
       }
       if(event.data?.name==='ed4-cpu-history'){
-        if(experiment?.id==='phase9-3'&&this.cpuHistory.accept(event.data.props))this.log('재부팅 직전 CPU 실행 이력을 진단 JSON에 기록했습니다. 원인 확정은 이력 분석이 필요합니다.');
+        if((experiment?.id==='phase9-3'||experiment?.id==='phase9-4')&&(experiment.id==='phase9-4'?this.firstAnomaly:this.cpuHistory).accept(event.data.props))this.log('재부팅 직전 CPU 실행 이력을 진단 JSON에 기록했습니다. 원인 확정은 이력 분석이 필요합니다.');
         return;
       }
       if(event.data?.name==='ed4-reboot-event'){

@@ -1,0 +1,33 @@
+{
+  "id": "phase9-4",
+  "emulators": "0.73.8",
+  "emscripten": "3.1.21",
+  "sourceCommit": "aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5",
+  "files": {
+    "wdosbox.js": {
+      "sha256": "ba9c6703a04fcc52b5a40b68187ee0878d2624189b9892c613993257ddb97852",
+      "bytes": 128592
+    },
+    "wdosbox.wasm": {
+      "sha256": "13d96ce65d9370acf4a2c3f99a7723872ef6dae193ca4ffdd4944e526a7d3738",
+      "bytes": 1471506
+    },
+    "wdosbox.js.symbols": {
+      "sha256": "5ddfa2dcae4b2332726ed0442f84b6ba6c69094d49ef115465554fe38438301f",
+      "bytes": 240458
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    "DOSBOX-COPYING": {
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374",
+      "bytes": 17995
+    },
+    "SOURCE.txt": {
+      "sha256": "0f24a1b4673b161cd566b493062d0348251c72c6ca9352977f2a008337ca8dbb",
+      "bytes": 272
+    }
+  },
+  "sourceZipSha256": "845783c9038cc727ef2e7ceb3509cdf0c9376aa34874f4b8aeeed8b59d4adaa9"
+}

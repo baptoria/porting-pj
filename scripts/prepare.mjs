@@ -119,3 +119,6 @@ console.log("Prepared local emulator, licenses, icons, and CC0 DOS test ZIP.");
 await import('./prepare-phase9-3-assets.mjs');
 
 await import('./prepare-phase9-3-worker.mjs');
+
+await import('./prepare-phase9-4-assets.mjs');
+await import('./prepare-phase9-4-worker.mjs');

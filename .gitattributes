@@ -16,3 +16,10 @@
 /public/dos-worker-*phase9-3*.js text eol=lf
 /docs/ed4/dos-worker-*phase9-3*.js -text
 /tests/fixtures/phase9-3-hotfix/*.js text eol=lf
+
+/docs/ed4/vendor/experimental/phase9-4/* -text
+/public/sources/emulators-0.73.8-phase9-4-source.zip -text
+/docs/ed4/sources/emulators-0.73.8-phase9-4-source.zip -text
+/scripts/phase9-4/* text eol=lf
+/public/dos-worker-*phase9-4*.js text eol=lf
+/docs/ed4/dos-worker-*phase9-4*.js -text

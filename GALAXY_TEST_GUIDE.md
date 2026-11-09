@@ -1,12 +1,26 @@
 # Galaxy 실제 게임 등록·실행 안내
 
+## Phase 9-4: 최초 주소·모드 관측 (현재 시험)
+
+사용자가 Phase 9-3에서 ED4.EXE 첫 명령과 Reset Vector 진입까지 확인했다. **Phase 9-4의 Galaxy 시험과 게임 정상 실행은 아직 미검증**이다. 아래 이전 절차는 과거 시험 기록으로 남긴다.
+
+1. 사용자가 GitHub Desktop에서 변경을 검토해 Commit/Push하고 Pages 갱신을 기다린다. 온라인에서 실행기 탭/PWA를 모두 닫고 다시 연다. 사이트 데이터 삭제나 폴더·RAW·세이브 재등록은 하지 않는다.
+2. 기존 프로필 → 설정 · 백업 → BAT 실행 순서 · 임시 진단에서 GAME.BAT를 선택한다. 기존 CPU·메모리·사운드·RAW 조건을 유지한다.
+3. 이번 진단의 엔진을 **실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함**으로 선택하고 임시 진단을 실행한다. 기본 안정 엔진과 Phase 9-2/9-3 선택은 유지된다.
+4. 재부팅 이력 기록/Aborted 관측 후 진단 JSON을 내려받고 저장하지 않는 진단 종료를 사용한다. 검은 화면만 보이면 이력이 없을 수도 있으므로 그대로 전달한다. Aborted는 게임 성공이나 정상 종료가 아니다.
+5. JSON에서 `engine.artifact.id=phase9-4`, `verification=sha256-of-compiled-module`, `worker.bootstrap=ready`, WASM SHA-256 **13d96ce65d9370acf4a2c3f99a7723872ef6dae193ca4ffdd4944e526a7d3738**을 확인한다.
+6. `engine.cpuHistory.revision=phase9-4-first-1`, `history.first.armed`, `targetEntry`, `anchors`와 마지막 `records`를 함께 전달한다. 각 anchor의 sequence/epoch, before/event/after, lastExec, continuity, fetchConfirmed가 필요하다. 유형 배열 순서는 시간순이 아니다.
+7. CSFFFF 첫 진입, real EIP 16비트 초과, 실제 실행 오류는 서로 다른 시점일 수 있다. BIOS 호출이나 EIP 숫자만으로 결함을 판정하지 않는다. `entryObserved`도 초기화 성공을 뜻하지 않는다.
+
+선택은 다음 세션에 저장하지 않으며 진단 중 변경분은 폐기한다. 기본 실행으로 되돌아가면 안정 엔진을 사용한다. 원본 파일·메모리·세이브를 첨부할 필요는 없다. 모델/Chrome 버전과 관측까지 걸린 시간을 함께 기록한다. 모바일 성능 영향은 미측정이다. 상세 해석과 수집 한계: [PHASE9_4_FIRST_ANOMALY_REPORT.md](PHASE9_4_FIRST_ANOMALY_REPORT.md).
+
 ## Phase 9-3 Hotfix: Worker 버전 확인
 
 `Unknown diagnostic engine` 초기 로딩 오류 수정본은 공용 Worker와 진입 Worker를 내용 해시 경로로 고정한다. 배포 후 **온라인에서 실행기 탭/PWA를 모두 닫고 다시 열어 업데이트**한다. 게임 재등록이나 사이트 데이터 삭제는 하지 않는다. Phase 9-3 임시 진단 JSON의 `engine.artifact.worker.bootstrap=ready`, `common=dos-worker-common-phase9-3-735ee752056417c8.js`, `entry=dos-worker-phase9-3-8ff28155444b0ef8.js`를 확인한다. 파일을 아직 받지 않은 오프라인 상태에서는 업데이트가 먼저 필요하다. 상세 근거와 절차는 [PHASE9_3_HOTFIX_REPORT.md](PHASE9_3_HOTFIX_REPORT.md)를 참고한다. 이 Hotfix의 Galaxy 재시험과 실제 게임 성공은 아직 미검증이다.
 
 2026-11-09 / Phase 9-3 추가. 앱 0.5.0 및 기존 `phase7-runtime-1` 표기는 유지하며, 실험 진단은 `engine.reboot.revision=phase9-2-reboot-1`로 구별한다.
 
-## Phase 9-3: Reset Vector 직전 CPU 이력 (이번 시험)
+## 이전 Phase 9-3: Reset Vector 직전 CPU 이력
 
 기존 Phase 9-2 엔진과 안정 엔진을 보존했다. **게임 실행 성공과 원인은 아직 미검증**이다. 재등록·사이트 데이터 삭제 없이 아래 순서로 수집한다.
 

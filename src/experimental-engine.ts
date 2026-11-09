@@ -6,8 +6,9 @@ export async function verifiedModule(bytes:ArrayBuffer,expected:string){
  return {module:await WebAssembly.compile(bytes),sha256};
 }
 export const CPU_TRACE_ENGINE={id:'phase9-3',wasmSha256:'a1bd86ba5cc2ca0f17b50bffdd334bea7980171913c1f74689d31e608ef1980b',directory:'vendor/experimental/phase9-3/'} as const;
-export type ExperimentalEngineId='phase9-2'|'phase9-3';
-export const experimentalEngine=(id:ExperimentalEngineId)=>id==='phase9-3'?CPU_TRACE_ENGINE:REBOOT_ENGINE;
+export const FIRST_TRACE_ENGINE={id:'phase9-4',wasmSha256:'13d96ce65d9370acf4a2c3f99a7723872ef6dae193ca4ffdd4944e526a7d3738',directory:'vendor/experimental/phase9-4/'} as const;
+export type ExperimentalEngineId='phase9-2'|'phase9-3'|'phase9-4';
+export const experimentalEngine=(id:ExperimentalEngineId)=>id==='phase9-4'?FIRST_TRACE_ENGINE:id==='phase9-3'?CPU_TRACE_ENGINE:REBOOT_ENGINE;
 export async function prepareRebootEngine(id:ExperimentalEngineId='phase9-2'){
  const engine=experimentalEngine(id);
  const response=await fetch(`${import.meta.env.BASE_URL}${engine.directory}wdosbox.wasm`,{signal:AbortSignal.timeout(30000)});
