@@ -701,7 +701,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'}) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'}) {
   idle();
   rawPreview.stop();
   if (matchMedia("(pointer: coarse)").matches)
@@ -1464,11 +1464,11 @@ installSimpleImport({run: task, idle, profiles: () => profiles, selected: () => 
 
 // Phase 6: diagnostic controls reuse the existing UI; never persist a diagnostic profile.
 $('.phase2-card').insertAdjacentHTML('beforeend','<button id="boot-open">BAT 실행 순서 · 임시 진단</button>');
-$('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">화면 PNG</button><button id="run-diagnostics">진단 JSON</button>');
+$('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">화면 PNG</button><button id="run-diagnostics">진단 JSON</button><button id="run-performance" title="게임 메뉴가 안정된 뒤 30초 측정. 화면 콜백과 표시 기회는 실제 모니터 FPS와 다릅니다.">30초 성능 측정</button>');
 $('#play-area').insertAdjacentHTML('afterbegin','<div id="trace-status" role="status"></div>');
 $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="dialog-heading"><h2>임시 실행 추적</h2><button id="boot-close">닫기</button></div>
 <p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
-<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option><option value="phase9-5b">실험: Phase 9-5B 텍스트 메모리 호환 · 저장 안 함</option></select></label>
+<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option><option value="phase9-5b">실험: Phase 9-5B 텍스트 메모리 호환 · 저장 안 함</option><option value="phase9-6">실험: Phase 9-6 추적 OFF · 저장 안 함</option></select></label>
 <p>실험 엔진은 재부팅 진입 경로·CPU 상태를 기록합니다. 원래 abort() 오류는 유지됩니다. 엔진만 바꾸고 BAT·CPU·메모리·음악 조건은 먼저 그대로 비교하세요. 닫거나 종료하면 안정 엔진으로 돌아갑니다.</p>
 <label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option><option value="pc-baseline">PC 환경 기준: 현재 설정 · 믹서 출력 켬</option><option value="pc-mixer-nosound">PC 환경 비교: mixer.nosound=true만 변경</option></select></label>
 <p>WASM 비교 3종은 현재 CPU·메모리를 유지하고 동일 SB16을 사용합니다. 기준 결과부터 수집하고 한 번에 BAT 또는 RAW 마운트 하나만 비교하세요. RAW 생략은 OPFS 연결 음악에만 적용되며 본체 파일을 삭제하지 않습니다. NOSOUND의 실제 명령 순서를 먼저 확인하세요.</p>
@@ -1482,6 +1482,13 @@ $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="d
 <p>기본값은 현재 프로필과 같습니다. sbbase=220 / IRQ=7 / DMA=1 / HDMA=5. 변경값은 이번 진단에만 적용됩니다.</p>
 <p id="boot-block-reason" role="status"></p><button id="boot-start" aria-describedby="boot-block-reason">임시 진단 실행 (저장 안 함)</button></dialog>`);
 $('#run-diagnostics').onclick=()=>$('#export-diagnostics').click();
+$('#run-performance').onclick=async()=>{
+  if(!engine){status('게임 메뉴에 진입한 뒤 측정하세요.',true);return;}
+  const button=$<HTMLButtonElement>('#run-performance');button.disabled=true;button.textContent='30초 측정 중…';
+  try{const result=await engine.measurePerformance();log(result.valid?`성능 측정 완료: 화면 콜백 ${result.frameCallbacksPerSecond.toFixed(2)}/초 · 표시 기회 ${result.canvasPaintOpportunitiesPerSecond.toFixed(2)}/초. 진단 JSON에 별도 구간을 기록했습니다.`:'성능 측정 무효: 종료·일시정지·백그라운드 여부를 확인하고 같은 장면에서 다시 측정하세요.');}
+  catch(e){status(String(e),true);}
+  finally{button.disabled=false;button.textContent='30초 성능 측정';}
+};
 $('#boot-close').onclick=()=>$<HTMLDialogElement>('#boot-dialog').close();
 let bootFiles:Files={};
 function selectedComparison(){
@@ -1532,7 +1539,7 @@ on('#boot-start',async()=>{
   dosConfig({...current(),settings}); // validate before closing or starting
   const comparison=selectedComparison();
   const selectedEngine=$<HTMLSelectElement>('#boot-engine').value;
-  const experimentalEngine=selectedEngine==='phase9-2'||selectedEngine==='phase9-3'||selectedEngine==='phase9-4'||selectedEngine==='phase9-5b'?selectedEngine:undefined;
+  const experimentalEngine=selectedEngine==='phase9-2'||selectedEngine==='phase9-3'||selectedEngine==='phase9-4'||selectedEngine==='phase9-5b'||selectedEngine==='phase9-6'?selectedEngine:undefined;
   $<HTMLSelectElement>('#boot-engine').value='stable';
   $<HTMLDialogElement>('#boot-dialog').close();bootFiles={};
   await startGame({...comparison??{entry,settings,mode:'manual'},experimentalEngine});

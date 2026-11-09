@@ -11,6 +11,8 @@ import { RuntimeErrors, diagnosticText } from './runtime-errors';
 import { RebootObservation } from './reboot-observation';
 import { CpuHistory } from './cpu-history';
 import { FirstAnomaly } from './first-anomaly';
+import { PerformanceWindow } from './performance-window';
+import { PHASE96_WORKER } from './generated/phase9-6-worker';
 import { PHASE95B_WORKER } from './generated/phase9-5b-worker';
 import { PHASE94_WORKER } from './generated/phase9-4-worker';
 import { PHASE93_WORKER } from './generated/phase9-3-worker';
@@ -72,6 +74,11 @@ export class DosEngine implements Engine {
   private cpuHistory=new CpuHistory();
   private firstAnomaly=new FirstAnomaly();
   private experimental=false;
+  private performanceWindow?:PerformanceWindow;
+  private performanceId=0;
+  private performanceEnd?:()=>void;
+  private frameSentAt?:number;
+  private paintPending=false;
   private artifact:{id:string;emulators:string;wasmSha256?:string;expectedSha256?:string;verification:string;sourceCommit:string;worker?:{entry:string;common:string;expectedSha256:string;revision:string;bootstrap:'pending'|'ready'|'failed'}}={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
   musicMetrics?: {
     reads: number;
@@ -82,6 +89,7 @@ export class DosEngine implements Engine {
   diagnostics() {
     return {
       ...this.metrics,
+      performanceWindow:this.performanceWindow?.report(),
       averageFps:
         this.metrics.frames /
         Math.max(1, (performance.now() - this.startedAt) / 1000),
@@ -92,7 +100,7 @@ export class DosEngine implements Engine {
       runtimeErrors:this.runtimeErrors.report(),
       artifact:{...this.artifact},
       reboot:this.reboot.report(),
-      cpuHistory:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
+      cpuHistory:this.artifact.id==='phase9-6'?{enabled:false,reason:'Instruction history compiled out; rare reboot/EXEC events retained.'}:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -125,7 +133,7 @@ export class DosEngine implements Engine {
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(!['phase9-2','phase9-3','phase9-4','phase9-5b'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      if(!['phase9-2','phase9-3','phase9-4','phase9-5b','phase9-6'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=true;
       this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
       try{verified=await prepareRebootEngine(experiment.id);}
@@ -134,7 +142,7 @@ export class DosEngine implements Engine {
     }
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
-    const pinnedWorker=experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
+    const pinnedWorker=experiment?.id==='phase9-6'?PHASE96_WORKER:experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
     if(pinnedWorker)this.artifact.worker={entry:pinnedWorker.entry,common:pinnedWorker.common,expectedSha256:pinnedWorker.sha256,revision:pinnedWorker.revision,bootstrap:'pending'};
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
@@ -146,6 +154,11 @@ export class DosEngine implements Engine {
     let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-performance'){
+        if(event.data.props?.id===this.performanceId)this.performanceWindow?.sample(event.data.props);
+        return;
+      }
+      if(event.data?.name==='ws-update-lines')this.frameSentAt=typeof event.data.props?.ed4SentAt==='number'?event.data.props.ed4SentAt:undefined;
       if(event.data?.name==='ed4-worker-bootstrap'){
         if(pinnedWorker&&this.artifact.worker){
           const p=event.data.props;
@@ -168,6 +181,7 @@ export class DosEngine implements Engine {
         return;
       }
       if(event.data?.name==='ed4-runtime-error'){
+        this.performanceWindow?.invalidate('runtime-error');
         const source=['worker-error','worker-bootstrap','unhandledrejection','factory-rejection','factory-exception','emscripten-abort'].includes(event.data.props?.source)?event.data.props.source:'worker-report';
         if(source==='worker-bootstrap'&&this.artifact.worker)this.artifact.worker.bootstrap='failed';
         const failure=this.runtimeErrors.record(source,event.data.props);
@@ -245,6 +259,8 @@ export class DosEngine implements Engine {
     ci.events().onFrameSize(resize);
     ci.events().onFrame((rgb, rgba) => {
       if (!this.frame) return;
+      const sample=this.performanceWindow?.active?this.performanceWindow:undefined;
+      const drawStart=sample?performance.now():0;
       const dst = this.frame.data;
       if (rgba) dst.set(rgba);
       else if (rgb)
@@ -256,12 +272,20 @@ export class DosEngine implements Engine {
         }
       context.putImageData(this.frame, 0, 0);
       this.metrics.frames++;
+      if(sample){
+        sample.frame(performance.now()-drawStart,this.frameSentAt===undefined?undefined:performance.timeOrigin+performance.now()-this.frameSentAt);
+        if(!this.paintPending){this.paintPending=true;requestAnimationFrame(()=>{this.paintPending=false;if(sample===this.performanceWindow)sample.paint();});}
+      }
+      this.frameSentAt=undefined;
     });
     ci.events().onStdout(message=>{this.stdout?.(message);this.log(message);});
     ci.events().onMessage((type, ...args) => {
       this.log(`${type}: ${args.join(" ")}`);
     });
     ci.events().onSoundPush((samples) => {
+      const sample=this.performanceWindow?.active?this.performanceWindow:undefined;
+      const audioStart=sample?performance.now():0;
+      try {
       this.metrics.audioSamples += samples.length;
       if (samples.some((value) => Math.abs(value) > 0.001))
         this.canvas.dataset.audioSignal = "true";
@@ -293,11 +317,29 @@ export class DosEngine implements Engine {
         this.nextAudio = audio.currentTime + 0.025;
       source.start(this.nextAudio);
       this.nextAudio += buffer.duration;
+      } finally {sample?.audio(performance.now()-audioStart,samples.length);}
     });
     // The first text frame can precede onFrame registration.
     const initial = await ci.screenshot();
     context.putImageData(initial, 0, 0);
     this.log("DOS 엔진 연결 완료");
+  }
+  async measurePerformance() {
+    if(!this.ci)throw Error('게임 메뉴에 진입한 뒤 측정하세요.');
+    if(this.performanceWindow?.active)throw Error('성능 측정이 진행 중입니다.');
+    const sample=this.performanceWindow=new PerformanceWindow(),id=++this.performanceId;
+    const native=this.artifact.id==='phase9-6';
+    sample.start(performance.now());this.frameSentAt=undefined;
+    const visibility=()=>{if(document.hidden)sample.invalidate('hidden');};visibility();
+    document.addEventListener('visibilitychange',visibility);
+    if(native)this.worker?.postMessage({name:'ed4-perf-start',id});
+    await new Promise<void>(resolve=>{
+      const poll=native?setInterval(()=>this.worker?.postMessage({name:'ed4-perf-poll',id}),1000):undefined;
+      const finish=(stopped=false)=>{clearTimeout(timer);clearInterval(poll);if(stopped)sample.invalidate('stopped');sample.finish(performance.now());
+        if(native)this.worker?.postMessage({name:'ed4-perf-stop',id});document.removeEventListener('visibilitychange',visibility);this.performanceEnd=undefined;resolve();};
+      const timer=setTimeout(()=>finish(),30000);this.performanceEnd=()=>finish(true);
+    });
+    return sample.report();
   }
   key(code: number, pressed: boolean) {
     if (!this.ci || this.paused) return;
@@ -310,6 +352,7 @@ export class DosEngine implements Engine {
     this.pressed.clear();
   }
   pause(value: boolean) {
+    if(value)this.performanceWindow?.invalidate('paused');
     this.releaseKeys();
     this.paused = value;
     if (value) {
@@ -367,6 +410,7 @@ export class DosEngine implements Engine {
     };
   }
   async stop() {
+    this.performanceEnd?.();
     this.releaseKeys();
     if (this.ci) {
       let timer: ReturnType<typeof setTimeout> | undefined;

@@ -23,3 +23,12 @@
 /scripts/phase9-4/* text eol=lf
 /public/dos-worker-*phase9-4*.js text eol=lf
 /docs/ed4/dos-worker-*phase9-4*.js -text
+
+# Preserve reviewed 9-5B and 9-6 artifacts across Windows Git checkouts.
+/docs/ed4/vendor/experimental/phase9-5b/* -text
+/docs/ed4/vendor/experimental/phase9-6/* -text
+/public/sources/emulators-0.73.8-phase9-6-source.zip -text
+/docs/ed4/sources/emulators-0.73.8-phase9-6-source.zip -text
+/public/dos-worker-*phase9-6*.js -text
+/docs/ed4/dos-worker-*phase9-6*.js -text
+/scripts/phase9-6-worker-performance.js -text
