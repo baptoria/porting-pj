@@ -1,4 +1,4 @@
-import {requireDeveloperTools} from './build-policy';
+import {validateEngineSession,type EngineSession} from './engine-session';
 import {PHASE98K_WORKER} from './generated/phase9-8k-worker';
 import {PHASE98I_WORKER} from './generated/phase9-8i-worker';
 import {WorkletAudio} from './worklet-audio';
@@ -31,7 +31,7 @@ import { PHASE96_WORKER } from './generated/phase9-6-worker';
 import { PHASE95B_WORKER } from './generated/phase9-5b-worker';
 import { PHASE94_WORKER } from './generated/phase9-4-worker';
 import { PHASE93_WORKER } from './generated/phase9-3-worker';
-import { prepareRebootEngine, experimentalEngine, type ExperimentalEngineId } from './experimental-engine';
+import { prepareRebootEngine, experimentalEngine } from './experimental-engine';
 declare global {
   interface Window {
     emulators: Emulators;
@@ -212,19 +212,32 @@ export class DosEngine implements Engine {
     private failure?:(message:string)=>void,
   ) {}
   // Call synchronously in the Play click, before IndexedDB/ZIP awaits.
+  private audioActivation?:Promise<void>;
+  private audioActivationError?:unknown;
   activateAudio() {
     this.audio ??= new AudioContext();
-    this.gain ??= this.audio.createGain();
-    this.gain.connect(this.audio.destination);
-    void this.audio
-      .resume()
-      .catch(() => this.log("소리 켜기 버튼을 눌러 오디오를 활성화하세요."));
+    if(!this.gain){this.gain=this.audio.createGain();this.gain.connect(this.audio.destination);}
+    this.audioActivationError=undefined;
+    // Retain the user-gesture promise. Guest execution must not consume its
+    // initial music request while the browser is still unlocking output.
+    this.audioActivation=this.audio.resume().catch(error=>{this.audioActivationError=error;});
+  }
+  private async readyAudio(){
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try{
+      if(!this.audioActivation)throw Error('소리 활성화를 요청하지 않았습니다.');
+      await Promise.race([this.audioActivation,new Promise<never>((_,reject)=>{
+        timer=setTimeout(()=>reject(Error('브라우저 소리 활성화 응답 시간 초과')),8000);
+      })]);
+      if(this.audioActivationError||this.audio?.state!=='running')throw Error('브라우저에서 소리 활성화를 허용하지 않았습니다.');
+    }catch(error){throw Error('오디오 준비 실패: '+String(error)+' 게임은 시작하지 않았습니다. 화면으로 돌아와 모험 시작을 다시 누르세요.');}
+    finally{clearTimeout(timer);}
   }
   setVolume(volume: number) {
     if (this.gain) this.gain.gain.value = volume;
   }
-  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:ExperimentalEngineId;discardWrites:true;cyclesPolicy?:number}|{id:'phase9-7';discardWrites:false;purpose:'normal-play'}|{id:'phase9-7';discardWrites:true;purpose:'recovery-preview'}) {
-    if(experiment && !('purpose' in experiment && experiment.id==='phase9-7' && ((experiment.purpose==='normal-play' && experiment.discardWrites===false)||(experiment.purpose==='recovery-preview' && experiment.discardWrites===true))))requireDeveloperTools();
+  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:EngineSession) {
+    validateEngineSession(experiment);
     this.stopping=false;this.speedFault=null;this.speedRecovery=false;this.speedSwitching=false;this.speedRecoveryCount=0;this.speedRecoveredAt=0;this.speedContinuedFault=false;this.audioSupply=new AudioSupply();
     this.startedAt = performance.now();
     this.audioStartup=new AudioStartup();
@@ -240,7 +253,6 @@ export class DosEngine implements Engine {
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(!['phase9-2','phase9-3','phase9-4','phase9-5b','phase9-6','phase9-7','phase9-8c','phase9-8d','phase9-8f','phase9-8h','phase9-8i','phase9-8k'].includes(experiment.id)||(experiment.discardWrites!==true&&!(experiment.id==='phase9-7'&&'purpose' in experiment&&experiment.purpose==='normal-play')))throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=experiment.discardWrites;
       this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
       try{verified=await prepareRebootEngine(experiment.id);}
@@ -250,6 +262,7 @@ export class DosEngine implements Engine {
     this.rawObservation={source:'not-sampled',capturedAtMs:null};
     this.bgmReport={source:'not-sampled',ownership:'unknown'};
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
+    await this.readyAudio();
     await loadEmulator();
     if(experiment?.id==='phase9-8i'||experiment?.id==='phase9-8k'){if(!this.audio||!this.gain)throw Error("오디오 활성화 필요");this.speedAudio=await WorkletAudio.create(this.audio,this.gain,message=>void this.recoverSpeed(message,true),experiment.id);}
     const pinnedWorker=experiment?.id==='phase9-8k'?PHASE98K_WORKER:experiment?.id==='phase9-8i'?PHASE98I_WORKER:experiment?.id==='phase9-8h'?PHASE98H_WORKER:experiment?.id==='phase9-8f'?PHASE98F_WORKER:experiment?.id==='phase9-8d'?PHASE98D_WORKER:experiment?.id==='phase9-8c'?PHASE98C_WORKER:experiment?.id==='phase9-7'?PHASE97_WORKER:experiment?.id==='phase9-6'?PHASE96_WORKER:experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
@@ -378,7 +391,7 @@ export class DosEngine implements Engine {
     if(experiment?.id==='phase9-8h'||experiment?.id==='phase9-8i'||experiment?.id==='phase9-8k'){
       if(!this.audio||!this.gain)throw Error('오디오 활성화 후 H 실험을 시작하세요.');
       this.speedAudio??=new SpeedAudio(this.audio,this.gain);
-      this.speed=new SpeedControl(message=>worker.postMessage({...message,props:{...message.props,policy:experiment.discardWrites?experiment.cyclesPolicy??0:0}}),()=>this.speedChanged?.(),3000,experiment.id);
+      this.speed=new SpeedControl(message=>worker.postMessage({...message,props:{...message.props,policy:'cyclesPolicy' in experiment?experiment.cyclesPolicy??0:0}}),()=>this.speedChanged?.(),3000,experiment.id);
       const ack=await this.speed.request('set',1);if(ack.rate!==1)throw Error('초기1× 확인 실패');
       this.speedTimer=setInterval(()=>void this.pollSpeed(),1000);
     }
@@ -512,27 +525,27 @@ export class DosEngine implements Engine {
     for (const code of this.pressed) this.ci?.sendKeyEvent(code, false);
     this.pressed.clear();
   }
-  pause(value: boolean) {
+  async pause(value: boolean) {
     if(value)this.performanceWindow?.invalidate('paused');
     this.releaseKeys();
     const epoch=++this.audioResumeEpoch;
     if(this.speedAudio&&!value){
       // AudioContext.resume is asynchronous. Keep guest paused until its clock runs.
       this.audioResuming=true;this.speedChanged?.();
-      void this.audio?.resume().then(()=>{
+      await this.audio?.resume().then(()=>{
         if(this.stopping||epoch!==this.audioResumeEpoch)return;
         this.paused=false;this.audioResuming=false;this.ci?.resume();this.speedChanged?.();
-      }).catch(e=>{this.audioResuming=false;void this.recoverSpeed('오디오 재개 실패: '+String(e),true);});
+      }).catch(async e=>{this.audioResuming=false;await this.recoverSpeed('오디오 재개 실패: '+String(e),true);throw e;});
       return;
     }
     this.audioResuming=false;
     this.paused = value;
     if (value) {
       this.ci?.pause();
-      void this.audio?.suspend();
+      await this.audio?.suspend();
     } else {
       this.ci?.resume();
-      void this.audio?.resume();
+      await this.audio?.resume();
     }
     if(!this.speedAudio)this.nextAudio = 0;
     this.speedChanged?.();

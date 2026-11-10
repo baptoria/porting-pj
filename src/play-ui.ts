@@ -13,7 +13,7 @@ export function controlLayout(width:number,height:number,s:PlayUi){
  return {joy,button,gap,joyX:Math.max(0,w/2-joy)*s.joystickX/100,joyY:Math.max(0,h-joy)*s.joystickY/100,
   actionX:w/2+Math.max(0,w/2-group)*s.buttonX/100,actionY:Math.max(0,h-button)*s.buttonY/100};
 }
-export const SPEED_CAPABILITY={supported:false,rate:1,reason:'2×는 Phase 9-8H 전체 오디오 가속 일회성 진단에서만 지원합니다. 현재 일반 속도 1×입니다.'} as const;
+export const SPEED_CAPABILITY={supported:false,rate:1,reason:'기본 속도는 1×입니다. 배속은 실행 중인 엔진의 확인 응답에 따라 활성화됩니다.'} as const;
 export function installPlayUi(area:HTMLElement){
  const release=()=>window.dispatchEvent(new Event('ed4-release-input'));
  let settings:PlayUi={...DEFAULT_PLAY_UI};try{settings=normalizePlayUi(JSON.parse(localStorage.getItem(PLAY_UI_KEY)??'null'));}catch{}

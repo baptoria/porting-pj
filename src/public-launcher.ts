@@ -8,7 +8,8 @@ export function installPublicLauncher(){
  const hide=(element:HTMLElement|null)=>{if(element){element.hidden=true;element.dataset.publicUnavailable='true';}};
  for(const s of ['.trial-launch','#open-import','#demo','.phase2-card','.diagnostics',
  '#boot-dialog','#import-dialog','#run-diagnostics','#run-performance','#scene-panel',
- '#trace-status','#speed-toggle','#speed-limit','#raw-preview','#raw-stop'])hide(q(s));
+ '#trace-status','#raw-preview','#raw-stop'])hide(q(s));
+ q('#speed-toggle').hidden=true;q('#speed-limit').hidden=true;
  for(const s of ['#cycles','#memory','#sound','#prelude','#preset','#required-version'])hide(q(s).closest('label'));
  // Keep existing saved CPU/prelude values, and existing ordinary engine preference.
  for(const el of q('#settings-form').querySelectorAll<HTMLElement>(':scope > .hint'))hide(el);
@@ -33,6 +34,31 @@ export function installPublicLauncher(){
  more.append(q('#save-paths').closest('label')!,heading,hint,patches);
  note.textContent='선택한 게임으로 모험을 이어갑니다.';
  original.addEventListener('change',()=>{note.textContent='선택한 게임으로 모험을 이어갑니다.';});
+ // Compact home: keep every existing control/listener, reveal lists on demand.
+ hide(q('#normal-launch > .eyebrow'));hide(note);
+ hide(q('.hero-copy > .eyebrow'));
+ q('.hero-copy > p').textContent='당신의 모험을 이어서.';
+ q('.launch-deck').append(q('#registration-action'));
+ q('#selected-profile').append(q('#recent-save'));
+ hide(q('#settings-toggle'));
+ q('#advanced-content').append(q('.simple-summary'));
+ const games=document.createElement('details');games.id='public-games';
+ games.innerHTML='<summary>등록된 게임 · 모드 관리</summary>';
+ q('.library').before(games);games.append(q('.library'));
+ const choose=q<HTMLButtonElement>('#choose-profile');
+ choose.textContent='게임 변경';choose.setAttribute('aria-controls',games.id);choose.setAttribute('aria-expanded','false');
+ choose.onclick=()=>{games.open=!games.open;if(games.open)games.scrollIntoView({block:'nearest'});};
+ games.addEventListener('toggle',()=>choose.setAttribute('aria-expanded',String(games.open)));
+ q('#profiles').addEventListener('click',event=>{
+  if((event.target as HTMLElement).closest('button')){games.open=false;choose.focus();}
+ });
+ const homeState=()=>{
+  const registered=document.body.classList.contains('has-profile');
+  choose.disabled=!registered||document.body.classList.contains('running')||document.body.classList.contains('busy');
+  q('#simple-import').textContent=registered?'다른 게임 등록':'게임 등록';
+ };
+ new MutationObserver(homeState).observe(document.body,{attributes:true,attributeFilter:['class']});homeState();
+ q('#status').textContent='';
  const music=q('.phase3-card');music.querySelector('h3')!.textContent='음악 파일 연결';
  const hints=music.querySelectorAll<HTMLElement>('.hint');
  if(hints[0])hints[0].textContent='등록할 때 포함된 RAW 음악은 자동으로 연결됩니다. 따로 보관한 RAW 파일은 여기서 추가할 수 있습니다. 음악 없이도 실행할 수 있습니다.';

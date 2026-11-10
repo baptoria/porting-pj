@@ -28,3 +28,31 @@
 
 #simple-folder-choice {margin:12px 0;}
 #simple-folder-summary {overflow-wrap:anywhere;}
+
+/* O home only. No input geometry, game canvas, audio or saved preference changes. */
+[data-build-audience="public"] .launcher-hero {gap:28px;padding:24px 0;align-items:center;}
+[data-build-audience="public"] .hero-copy h1 {margin:0 0 10px;}
+[data-build-audience="public"] .hero-copy > p {margin-bottom:18px;}
+[data-build-audience="public"] #selected-profile .eyebrow {display:none;}
+[data-build-audience="public"] #recent-save {display:block;margin-top:10px;color:var(--muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere;}
+[data-build-audience="public"] .launch-deck {gap:12px;opacity:1;}
+[data-build-audience="public"] #registration-action {margin:0;max-width:none;}
+[data-build-audience="public"] #registration-action button {width:100%;min-height:48px;}
+[data-build-audience="public"]:not(.has-profile) #normal-launch {display:none;}
+[data-build-audience="public"] #public-games {border:1px solid var(--line);border-radius:10px;padding:0 14px;background:#171f2b;}
+[data-build-audience="public"] #public-games:not([open]),
+[data-build-audience="public"] #advanced-settings:not([open]),
+[data-build-audience="public"].running #public-games {display:none;}
+[data-build-audience="public"] #public-games > summary {display:flex;align-items:center;cursor:pointer;color:var(--gold);}
+[data-build-audience="public"] #status {padding:4px 0;}
+[data-build-audience="public"] #status:empty {display:none;}
+[data-build-audience="public"] .launcher-nav {padding:16px 0 8px;}
+[data-build-audience="public"] .simple-summary:empty {display:none;}
+@media(orientation:landscape) and (max-height:430px){
+ [data-build-audience="public"] .main-panel {padding:12px max(24px,env(safe-area-inset-left)) 8px;}
+ [data-build-audience="public"] .launcher-hero {padding:12px 0 16px;gap:28px;}
+ [data-build-audience="public"] .hero-copy h1 {font-size:34px;margin-bottom:6px;}
+ [data-build-audience="public"] .hero-copy > p {margin-bottom:10px;font-size:12px;}
+ [data-build-audience="public"] #recent-save {margin-top:6px;}
+ [data-build-audience="public"] .launcher-nav {padding-top:12px;}
+}

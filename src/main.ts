@@ -732,7 +732,8 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
   if(traceOptions)requireDeveloperTools();
   idle();
   if(launcherUpdate.locked||launcherUpdate.incompatible)throw Error('실행기 업데이트 중이거나 코드/서비스 워커 버전이 다릅니다. 업데이트 상태를 확인하세요. 게임 데이터는 유지됩니다.');
-  const playEngine=!traceOptions&&$<HTMLSelectElement>('#play-engine').value==='phase9-7'?'phase9-7':'stable';
+  const choice=$<HTMLSelectElement>('#play-engine').value;
+  const playEngine=!traceOptions&&(choice==='phase9-7'||choice==='phase9-8k')?choice:'stable';
   scenePanel.start(traceOptions?.experimentalEngine??playEngine);
   window.dispatchEvent(new Event("ed4-release-input"));
   rawPreview.stop();
@@ -818,7 +819,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     launchStep("runtime-build");
     const bundle = await buildRuntime(p, input, save, temporary,traceOptions?.environment);
     launchStep("worker-wasm-start");
-    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true,cyclesPolicy:traceOptions.cyclesPolicy}:playEngine==='phase9-7'?(recoveryPreview?{id:'phase9-7',discardWrites:true,purpose:'recovery-preview'}:{id:'phase9-7',discardWrites:false,purpose:'normal-play'}):undefined);
+    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true,cyclesPolicy:traceOptions.cyclesPolicy}:playEngine!=='stable'?(recoveryPreview?{id:playEngine,discardWrites:true,purpose:'recovery-preview'}:{id:playEngine,discardWrites:false,purpose:'normal-play'}):undefined);
     launchStep("backend-ready");
     scenePanel.ready();
     running = structuredClone(p);
@@ -844,8 +845,9 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
 on('#play',()=>startGame());
 on("#pause", async () => {
   if (!engine) return;
-  paused = !paused;
-  engine.pause(paused);
+  const next=!paused;
+  await engine.pause(next);
+  paused=next;
   $("#pause").textContent = paused ? "계속 실행" : "일시 정지";
   $("#run-state").textContent = paused ? "일시 정지" : "실행 중";
 });
@@ -853,19 +855,21 @@ on("#stop", async () => {
   if (!engine) return;
   const wasPaused=paused;
   if(!diagnosticRun){
-    engine.pause(true);paused=true;
+    await engine.pause(true);paused=true;
     try {
       if(checkpointPromise)await checkpointPromise;
       await checkpoint();
       if(tempSession?.missing.length){
         const decision=await chooseConsumedExit(tempSession.missing);
         if(decision!=='exit'){
-          paused=wasPaused;engine.pause(wasPaused);
+          $("#run-state").textContent=wasPaused?'일시 정지':'재개 중';
+          await engine.pause(wasPaused);paused=wasPaused;
+          $("#run-state").textContent=paused?'일시 정지':'실행 중';
           if(decision==='recovery')await openRecovery();
           return;
         }
       }
-    } catch(error){paused=wasPaused;engine.pause(wasPaused);throw Error(storageError(error)+' 게임을 종료하지 않았습니다. 다시 저장하거나 현재 파일 내보내기를 사용하세요.');}
+    } catch(error){await engine.pause(wasPaused);paused=wasPaused;$("#run-state").textContent=paused?'일시 정지':'실행 중';throw Error(storageError(error)+' 게임을 종료하지 않았습니다. 다시 저장하거나 현재 파일 내보내기를 사용하세요.');}
   }
   scenePanel.end();
   lastEngineMetrics = engine.diagnostics();
@@ -1548,8 +1552,8 @@ async function init() {
 // Phase 5: keep the existing advanced tools, make the default path simple.
 $("#profiles").insertAdjacentHTML("beforebegin", '<button id="simple-import" class="primary wide">게임 등록</button>');
 $("#play").textContent = "▶ 게임 실행";
-$('#play').insertAdjacentHTML('beforebegin','<label>일반 실행 엔진<select id="play-engine"><option value="stable">Stable 원래 엔진</option><option value="phase9-7">Phase 9-7 ED4 호환 · 1× · 일반 저장</option></select></label><small>구버전 ED4는 VGA 호환 수정이 있는 9-7을 직접 선택하세요. Stable은 변경하지 않습니다. 실기 저장 안정성은 아직 확인 중입니다.</small>');
-try{if(localStorage.getItem('ed4-play-engine-v1')==='phase9-7')$<HTMLSelectElement>('#play-engine').value='phase9-7';}catch{}
+$('#play').insertAdjacentHTML('beforebegin','<label>일반 실행 엔진<select id="play-engine"><option value="stable">Stable 원래 엔진</option><option value="phase9-7">Phase 9-7 ED4 호환 · 1× · 일반 저장</option><option value="phase9-8k">전체 배속 지원 · 1×/2× · 일반 저장</option></select></label><small>구버전 ED4는 VGA 호환 수정이 있는 9-7을 직접 선택하세요. Stable은 변경하지 않습니다. 실기 저장 안정성은 아직 확인 중입니다.</small>');
+try{const saved=localStorage.getItem('ed4-play-engine-v1');if(saved==='phase9-7'||saved==='phase9-8k')$<HTMLSelectElement>('#play-engine').value=saved;}catch{}
 $('#play-engine').addEventListener('change',()=>{try{localStorage.setItem('ed4-play-engine-v1',$<HTMLSelectElement>('#play-engine').value);}catch{}});
 
 $("#empty-screen p").textContent = "게임 폴더 또는 ZIP을 한 번 등록하면 다음부터 바로 실행할 수 있습니다.";
@@ -1668,11 +1672,12 @@ const playUiSnapshot=installPlayUi($("#play-area"));
 function renderSpeed(){
  const s=engine?.speedState(),button=$<HTMLButtonElement>('#speed-toggle');if(!button)return;
  const enabled=!!s?.supported&&s.verified&&!s.pending&&!s.fault&&!paused;
+ if(!DEVELOPER_TOOLS){button.hidden=!s?.supported;$('#speed-limit').hidden=!s?.supported;}
  button.dataset.capable=String(!!s?.supported);button.disabled=!enabled;button.setAttribute('aria-pressed',String(s?.verified&&s.rate===2));
- const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속 · 저장 안 함`)):'현재 일반 속도 1×입니다. 2×는 별도의 저장하지 않는 시험 실행에서 사용할 수 있습니다.';
+ const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속${diagnosticRun?' · 저장 안 함':''}`)):'현재 일반 속도 1×입니다. 전체 배속은 게임 설정에서 선택할 수 있습니다.';
  button.title=text;button.setAttribute('aria-label','2× 전환 · '+text);$('#speed-limit').textContent=text;if(s?.fault)status(s.fault,true);
 }
-on('#speed-toggle',async()=>{if(!engine)return;await engine.setSpeed(engine.speedState().rate===2?1:2);renderSpeed();});
+on('#speed-toggle',async()=>{if(!DEVELOPER_TOOLS&&(!engine||!engine.speedState().supported||engine.diagnostics().artifact.id!=='phase9-8k'))requireDeveloperTools();if(!engine)return;await engine.setSpeed(engine.speedState().rate===2?1:2);renderSpeed();});
 $('#advanced-content').insertAdjacentHTML('afterbegin','<section id="launcher-update"></section>');
 const launcherUpdate=installLauncherUpdate($('#launcher-update'),()=>!!engine||!!running||busy);
 const scenePanel=installScenePanel($('.player-toolbar'),()=>engine,download);

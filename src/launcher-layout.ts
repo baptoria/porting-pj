@@ -12,7 +12,7 @@ export function installLauncherLayout(){
  q('#normal-launch').append(label,q('#play'),note);
  q('#play').textContent='모험 시작';
  q<HTMLSelectElement>('#play-engine').setAttribute('aria-label','일반 실행 엔진');
- const describe=()=>{note.textContent=engine instanceof HTMLSelectElement&&engine.value==='phase9-7'?'Phase 9-7 호환 경로 · 기존 일반 저장 사용':'Stable 원래 경로 · 기존 일반 저장 사용. 구버전 ED4는 위에서 Phase 9-7을 선택하세요.';};
+ const describe=()=>{note.textContent=engine instanceof HTMLSelectElement&&engine.value==='phase9-8k'?'전체 배속 호환 실행 · 음악/효과음도 가속 · 일반 저장 사용':engine instanceof HTMLSelectElement&&engine.value==='phase9-7'?'Phase 9-7 호환 경로 · 기존 일반 저장 사용':'Stable 원래 경로 · 기존 일반 저장 사용. 구버전 ED4는 위에서 Phase 9-7을 선택하세요.';};
  engine.addEventListener('change',describe);describe();
  const library=q('.library');q('.launcher-nav').after(library);
  library.querySelector('h1')!.remove();library.querySelector('.intro')!.remove();
