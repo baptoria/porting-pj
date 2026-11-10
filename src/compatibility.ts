@@ -1,6 +1,7 @@
 import type { Archive, Files, Profile, Save } from "./model";
 import { compose } from "./archive";
-import { overlayFiles, deletedFiles } from "./save-state";
+import { overlayFiles, deletedFiles, isSavePath } from "./save-state";
+import type { RecoveryPoint } from './temp-save';
 export interface Conflict {
   path: string;
   layers: string[];
@@ -66,4 +67,15 @@ export function orderImpact(
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(
     (path) => !equal(a[path], b[path]),
   );
+}
+
+export function saveConflictStatus(p: Profile, archives: Archive[], save: Save | undefined, points: RecoveryPoint[]) {
+  return conflicts(p, archives, save).filter(c => c.saveOverride).map(c => {
+    const patch = archives.some(a => p.patchIds.includes(a.id) && !!a.files[c.path]);
+    const observed = save?.tempSaveObservation?.absentAfterPresent.includes(c.path) &&
+      points.some(r => r.kind !== 'before-restore' && r.candidatePaths.includes(c.path) && !!r.save.files[c.path]);
+    const category = patch ? '모딩 파일과 저장 데이터 충돌' : !isSavePath(c.path,p) ? '원본 리소스 변경/삭제 위험' :
+      !c.deleted ? '정상 저장 변경분 적용' : observed ? '일회성 임시 파일 소비 가능성 · 복구본 있음' : '확인되지 않은 저장 삭제';
+    return {...c,category,warning:patch || !isSavePath(c.path,p) || (c.deleted && !observed)};
+  });
 }

@@ -73,6 +73,7 @@ export interface Profile {
   };
 }
 export interface Save {
+  tempSaveObservation?: { sessionId: string; absentAfterPresent: string[] };
   profileId: string;
   files: Files;
   updatedAt: number;

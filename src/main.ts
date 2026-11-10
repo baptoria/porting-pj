@@ -23,12 +23,13 @@ import {
   saveLibrary,
   storageError,
   recoverSave,
+  recoveryPoints, recoveryPolicy, putRecoveryPolicy, commitProtectedSave, applyRecovery, replaceSaveWithBackup,
 } from "./storage";
 import { exportBackup, importBackup, recoverProfile } from "./backup";
 import { importArchive } from "./importer";
 import { identity, checkIdentity, checkRequirements } from "./integrity";
 import { reconcileSave, overlayFiles, deletedFiles } from "./save-state";
-import { conflicts, layerFiles, orderImpact } from "./compatibility";
+import { conflicts, layerFiles, orderImpact, saveConflictStatus } from "./compatibility";
 import { buildRuntime } from "./runtime-builder";
 import { measurements, record } from "./telemetry";
 import { PRESETS } from "./presets";
@@ -53,7 +54,9 @@ import { installSimpleImport } from "./simple-import-ui";
 import { importTrace } from './import-trace';
 import { bootPlan, BootTrace } from './boot-trace';
 import { runtimeComparison, type ComparisonMode } from './runtime-comparison';
-import type { Files, DosSettings } from './model';
+import { candidatePaths, effectiveFiles, policyPaths, recoveryPoint, restoredSave, saveScope, TempSaveSession, attachTempObservation } from "./temp-save";
+import { chooseConsumedExit, showRecoveryPanel } from "./recovery-ui";
+import type { Files, DosSettings, Save } from './model';
 
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector)!;
@@ -81,6 +84,8 @@ let engine: DosEngine | undefined,
   writable = false;
 let checkpointPromise: Promise<void> | undefined;
 let activeSourcePaths: string[] = [];
+let activeSourceFiles: Files = {};
+let tempSession: TempSaveSession | undefined;
 let imported: Archive | undefined;
 let installPrompt: (Event & { prompt(): Promise<void> }) | undefined;
 const logs: string[] = [];
@@ -99,10 +104,10 @@ $("#app").innerHTML = `
 <section class="main-panel"><div class="title-row"><div><span id="profile-kind" class="eyebrow">실행 준비</span><h2 id="profile-title">모험을 준비하세요</h2></div><span class="engine-chip">js-dos <b>v7</b></span></div>
 <div id="play-area" class="play-area"><div class="screen-frame"><div class="screen-top"><span class="led"></span><span id="screen-label">DOS DISPLAY</span><span id="run-state">대기 중</span></div><div class="screen"><canvas id="canvas" width="640" height="400" tabindex="0" aria-label="DOS 실행 화면"></canvas><div id="empty-screen"><span class="pixel-emblem">Ⅳ</span><h3>당신의 모험을 이어서</h3><p>보유한 게임 ZIP을 등록하거나<br>공개 테스트 프로그램으로 시작하세요.</p><span class="screen-footnote">Galaxy 원본 실행·한글·오디오 확인 · 저장 실기 검증 필요</span></div></div></div>
 <div id="touch-controls" class="touch-controls"><div id="direction-pad" role="group" aria-label="4방향 버튼"><button class="up" data-key="265" aria-label="위">↑</button><button class="left" data-key="263" aria-label="왼쪽">←</button><button class="right" data-key="262" aria-label="오른쪽">→</button><button class="down" data-key="264" aria-label="아래">↓</button></div><div class="action-pad"><button id="cancel-key" data-key="256" aria-label="ESC">ESC<small hidden>Esc</small></button><button id="confirm-key" data-key="257" aria-label="Enter">Enter<small hidden>Enter</small></button></div><button id="menu-key" data-key="32" hidden>메뉴<small>Space</small></button></div>
-<div class="player-toolbar"><button id="play" class="primary">▶ 실행</button><button id="pause">일시 정지</button><button id="stop">저장 후 종료</button><span class="toolbar-spacer"></span><button id="keyboard-toggle" aria-expanded="false">키보드</button><button id="fullscreen">전체 화면 ⛶</button></div>
+<div class="player-toolbar"><button id="play" class="primary">▶ 실행</button><button id="pause">일시 정지</button><button id="recovery-run">복구 지점</button><button id="export-live">현재 파일 내보내기</button><button id="stop">저장 후 종료</button><span class="toolbar-spacer"></span><button id="keyboard-toggle" aria-expanded="false">키보드</button><button id="fullscreen">전체 화면 ⛶</button></div>
 <div id="virtual-keyboard" class="virtual-keyboard" hidden></div></div>
 <div id="status" role="status" aria-live="polite">게임 원본 없이도 공개 테스트 프로그램으로 실행 환경을 확인할 수 있습니다.</div>
-<div class="detail-grid"><section class="card"><div class="card-heading"><h3>실행 프로필</h3><button id="edit-profile" class="quiet">설정 ↗</button></div><dl><div><dt>실행 파일</dt><dd id="exe-label">등록 전</dd></div><div><dt>적용 순서</dt><dd id="layers-label">원본 → 수정 파일 → 저장 변경분</dd></div><div><dt>저장 공간</dt><dd id="save-label">프로필마다 독립적으로 보관</dd></div></dl><div class="card-actions"><button id="add-patch">수정 ZIP 추가</button><button id="backup">저장 백업</button><button id="restore">백업 가져오기</button></div></section>
+<div class="detail-grid"><section class="card"><div class="card-heading"><h3>실행 프로필</h3><button id="edit-profile" class="quiet">설정 ↗</button></div><dl><div><dt>실행 파일</dt><dd id="exe-label">등록 전</dd></div><div><dt>적용 순서</dt><dd id="layers-label">원본 → 수정 파일 → 저장 변경분</dd></div><div><dt>저장 공간</dt><dd id="save-label">프로필마다 독립적으로 보관</dd></div></dl><div class="card-actions"><button id="add-patch">수정 ZIP 추가</button><button id="backup">저장 백업</button><button id="restore">백업 가져오기</button><button id="recovery-open">이어하기 복구</button></div></section>
 <section class="card"><div class="card-heading"><h3>터치 컨트롤</h3><span class="subtle">가로 화면 권장</span></div><label class="range-row">버튼 크기<input id="control-size" type="range" min="38" max="76" value="50"><output id="size-value">50</output></label><label class="range-row">가장자리 간격<input id="control-inset" type="range" min="0" max="72" value="16"><output id="inset-value">16</output></label><label class="range-row">소리<input id="volume" type="range" min="0" max="100" value="60"><button id="audio" class="quiet">소리 켜기</button></label><p class="hint">확인 Enter · 취소 Esc · 메뉴 Space는 임시 매핑입니다. 실제 게임 입력키는 검증 후 조정합니다.</p></section></div>
 <details class="diagnostics"><summary>실행 기록 / 입력 설정</summary><div class="mapping"><label>확인<select id="map-confirm"></select></label><label>취소<select id="map-cancel"></select></label><label>메뉴<select id="map-menu"></select></label></div><pre id="logs" aria-label="실행 기록">엔진 시작 대기</pre></details>
 <footer><span>ED4 MOBILE / PHASE 2</span><a href="./licenses/NOTICE.html" target="_blank" rel="noopener">오픈소스 및 라이선스 ↗</a></footer></section></main>
@@ -324,6 +329,7 @@ async function diagnostic() {
           tombstones: deletedFiles(save),
         }
       : undefined,
+    temporarySave: tempSession?.report(),
     measurements: [...measurements],
     importTrace: importTrace(),
     bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
@@ -473,6 +479,9 @@ function updateButtons() {
     $(button).toggleAttribute("disabled", !running || busy);
   for (const button of ["#edit-profile", "#add-patch", "#restore", "#boot-open"])
     $(button).toggleAttribute("disabled", !selected || !!engine || busy);
+  $("#recovery-open").toggleAttribute("disabled", !selected || busy);
+  $("#recovery-run").toggleAttribute("disabled", !selected || busy);
+  $("#export-live").toggleAttribute("disabled", !running || diagnosticRun || busy);
   $("#backup").toggleAttribute("disabled", !selected || busy);
 }
 async function refresh() {
@@ -696,7 +705,11 @@ async function checkpoint() {
     const changed = await e.save();
     const previous = await getSave(p.id);
     if (changed.measurement) record(changed.measurement);
-    await putSave(reconcileSave(p, previous, changed, activeSourcePaths));
+    const next = reconcileSave(p, previous, changed, activeSourcePaths);
+    tempSession?.observe(effectiveFiles(activeSourceFiles, next));
+    if (tempSession) attachTempObservation(next,previous,tempSession);
+    const point = tempSession ? await recoveryPoint(p,activeSourceFiles,next,tempSession.paths,tempSession.id,'file-checkpoint') : undefined;
+    await commitProtectedSave(p.id,previous,next,point);
     status(
       "게임 파일 변경분을 브라우저에 저장했습니다. 게임 내부 저장 여부도 확인하세요.",
     );
@@ -708,7 +721,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i';cyclesPolicy?:number}) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i';cyclesPolicy?:number}, recoveryPreview?: Save) {
   idle();
   if(launcherUpdate.locked||launcherUpdate.incompatible)throw Error('실행기 업데이트 중이거나 코드/서비스 워커 버전이 다릅니다. 업데이트 상태를 확인하세요. 게임 데이터는 유지됩니다.');
   const playEngine=!traceOptions&&$<HTMLSelectElement>('#play-engine').value==='phase9-7'?'phase9-7':'stable';
@@ -721,7 +734,8 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
       $("#rotate-notice").textContent = message;
     });
   let p = current();
-  diagnosticRun=!!traceOptions;
+  diagnosticRun=!!traceOptions || !!recoveryPreview;
+  tempSession=undefined;
   bootTrace=undefined;bootSettings=undefined;environmentObservation=undefined;
   lastEngineMetrics=undefined;
   $('#trace-status').textContent=diagnosticRun?'진단 마커 대기':'';
@@ -738,15 +752,17 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
   bootSettings={profileId:p.id,original:{...p.settings},comparison:{...p.settings},kind:diagnosticRun?"trace":"direct",entry:p.executable,selectedEngine:traceOptions?.experimentalEngine??playEngine,config:dosConfig(p),stage:launchStage};
   const launchStep=(stage:string)=>{launchStage=stage;if(bootSettings)bootSettings.stage=stage;log("실행 단계: "+stage);};
   try {
-    const save = await getSave(p.id);
+    const save = recoveryPreview ?? await getSave(p.id);
     launchStep("profile-read");
     const input = await loadProfile(p);
     for(const note of checkRequirements(p, input))log(note);
-    const risks = conflicts(p, input, save).filter((c) => c.saveOverride);
+    const classified = saveConflictStatus(p,input,save,await recoveryPoints(p.id));
+    for (const item of classified.filter(c=>!c.warning)) log(item.path+' → '+item.category);
+    const risks = classified.filter(c=>c.warning);
     if (
       risks.length &&
       !confirm(
-        `저장 변경분 또는 삭제 표시가 원본/모드 파일 ${risks.length}개에 우선합니다.\n${risks.map((r) => r.path + " → " + r.winner).join("\n")}\n이 프로필의 변경분을 적용하여 실행할까요?`,
+        `저장 변경분 또는 삭제 표시가 원본/모드 파일 ${risks.length}개에 우선합니다.\n${risks.map((r) => r.path + " → " + r.category).join("\n")}\n이 프로필의 변경분을 적용하여 실행할까요?`,
       )
     ) {
       await engine.stop();
@@ -754,7 +770,19 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
       $("#run-state").textContent = "대기 중";
       return;
     }
-    activeSourcePaths = Object.keys(layerFiles(p, input));
+    const launchSource = layerFiles(p,input);
+    activeSourcePaths = Object.keys(launchSource);
+    activeSourceFiles = {};
+    if (!diagnosticRun) {
+      launchStep('pre-consumption-backup');
+      const paths=candidatePaths(launchSource,save,await recoveryPolicy(p.id));
+      // buildRuntime transfers archive buffers to its Worker. Retain ONLY save-scope bytes.
+      activeSourceFiles=Object.fromEntries(Object.entries(launchSource).filter(([path])=>saveScope(p,path,paths)).map(([path,bytes])=>[path,bytes.slice()]));
+      tempSession=new TempSaveSession(paths,effectiveFiles(activeSourceFiles,save));
+      const point=await recoveryPoint(p,activeSourceFiles,save,paths,tempSession.id,'before-consumption');
+      // Must commit BEFORE the DOS Worker can consume any file. Never revive source tombstones.
+      await commitProtectedSave(p.id,save,undefined,point);
+    }
     launchStep("raw-mount");
     const mountedMusic = traceOptions?.rawMounted===false?[]:await musicMounts(p, layerFiles(p, input), save);
     const inspection = inspectGame(layerFiles(p, input));
@@ -784,7 +812,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     launchStep("runtime-build");
     const bundle = await buildRuntime(p, input, save, temporary,traceOptions?.environment);
     launchStep("worker-wasm-start");
-    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true,cyclesPolicy:traceOptions.cyclesPolicy}:playEngine==='phase9-7'?{id:'phase9-7',discardWrites:false,purpose:'normal-play'}:undefined);
+    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true,cyclesPolicy:traceOptions.cyclesPolicy}:playEngine==='phase9-7'?(recoveryPreview?{id:'phase9-7',discardWrites:true}:{id:'phase9-7',discardWrites:false,purpose:'normal-play'}):undefined);
     launchStep("backend-ready");
     scenePanel.ready();
     running = structuredClone(p);
@@ -796,7 +824,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     renderSpeed();
     $("#canvas").focus();
     $('#stop').textContent=diagnosticRun?'진단 종료 (저장 안 함)':'저장 후 종료';
-    status(diagnosticRun?'임시 진단 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
+    status(diagnosticRun?'임시/복구 시험 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
   } catch (e) {
     scenePanel.end();
     lastEngineMetrics=engine?.diagnostics(); // Retain early WASM failures after cleanup.
@@ -817,7 +845,22 @@ on("#pause", async () => {
 });
 on("#stop", async () => {
   if (!engine) return;
-  await checkpoint();
+  const wasPaused=paused;
+  if(!diagnosticRun){
+    engine.pause(true);paused=true;
+    try {
+      if(checkpointPromise)await checkpointPromise;
+      await checkpoint();
+      if(tempSession?.missing.length){
+        const decision=await chooseConsumedExit(tempSession.missing);
+        if(decision!=='exit'){
+          paused=wasPaused;engine.pause(wasPaused);
+          if(decision==='recovery')await openRecovery();
+          return;
+        }
+      }
+    } catch(error){paused=wasPaused;engine.pause(wasPaused);throw Error(storageError(error)+' 게임을 종료하지 않았습니다. 다시 저장하거나 현재 파일 내보내기를 사용하세요.');}
+  }
   scenePanel.end();
   lastEngineMetrics = engine.diagnostics();
   await engine.stop();
@@ -1207,6 +1250,31 @@ function download(data: Uint8Array, name: string) {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 }
+
+async function recoveryAction(action:()=>Promise<void>) {
+  if(busy || !writable)throw Error('다른 작업 또는 저장 잠금을 확인하세요.');
+  busy=true;document.body.classList.add('busy');updateButtons();
+  try { await action(); } finally {busy=false;document.body.classList.remove('busy');updateButtons();}
+}
+async function openRecovery() {
+  const p=(running ? profiles.find(p=>p.id===running!.id) : undefined)??current(), source=layerFiles(p,await loadProfile(p)), save=await getSave(p.id);
+  showRecoveryPanel({profile:p,source,save,points:await recoveryPoints(p.id),policy:await recoveryPolicy(p.id),running:!!running},{
+    exportPoint:point=>download(exportBackup(p,point.save),`ed4-recovery-${p.id}-${point.createdAt}.zip`),
+    policy:value=>recoveryAction(async()=>{idle();await putRecoveryPolicy({profileId:p.id,paths:policyPaths(value)});}),
+    preview:point=>recoveryAction(async()=>{idle();await startGame(undefined,restoredSave(p,save,source,point));}),
+    apply:point=>recoveryAction(async()=>{idle();await applyRecovery(p,save,restoredSave(p,save,source,point),point.id);await refresh();status('선택 시점의 파일을 복구했습니다. 복구 직전 변경분도 별도로 보존했습니다.');})
+  });
+}
+on('#recovery-open',openRecovery);
+on('#recovery-run',openRecovery);
+on('#export-live',async()=>{
+  if(!engine||!running)throw Error('실행 중인 게임이 없습니다. 저장 백업을 사용하세요.');
+  if(diagnosticRun)throw Error('일회성 진단의 변경분은 보존하지 않습니다.');
+  const snapshot=await engine.save(), previous=await getSave(running.id);
+  download(exportBackup(running,reconcileSave(running,previous,snapshot,activeSourcePaths)),`ed4-current-files-${running.id}.zip`);
+  status('현재 파일 변경분을 내보냈습니다. 게임 메모리 진행이나 새로운 내부 세이브를 생성한 것은 아닙니다.');
+});
+
 on("#backup", async () => {
   const p = current();
   if (running?.id === p.id) await checkpoint();
@@ -1233,9 +1301,9 @@ $<HTMLInputElement>("#restore-file").onchange = () =>
     const p = current(),
       save = importBackup(new Uint8Array(await file.arrayBuffer()), p);
     if (!confirm("이 프로필의 저장 변경분을 백업 내용으로 교체할까요?")) return;
-    await putSave(save);
+    await replaceSaveWithBackup(p,await getSave(p.id),save);
     await refresh();
-    status("백업을 복원했습니다. 다음 실행부터 적용됩니다.");
+    status("복구 전 변경분을 별도 보존하고 백업을 복원했습니다. 다음 실행부터 적용됩니다.");
   });
 
 let relinkId = "";

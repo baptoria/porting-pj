@@ -2,11 +2,11 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8i-20261110031007430-9353bf84",
-    "commit": "f3489ae3affe",
+    "id": "9-8j-20261110044316523-bea15352",
+    "commit": "f7ee6bb62748",
     "dirty": true,
-    "builtAt": "2026-11-10T03:10:07.430Z",
-    "revision": "phase9-8i-1"
+    "builtAt": "2026-11-10T04:43:16.523Z",
+    "revision": "phase9-8j-1"
   },
   "files": [
     {
@@ -15,19 +15,19 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-CXr1-xVd.js",
+      "path": "assets/launcher-update-B7N15_75.js",
       "bytes": 6797,
-      "sha256": "be8d92469075ddcffa71cea00679d4a0538519c522dff6301dc6a582f4f50516"
+      "sha256": "65f72181d2b1c19a53ec66f2b429f00aecfc0aa820ceea81f82c697d47f4539f"
+    },
+    {
+      "path": "assets/main-DKs6_hnK.js",
+      "bytes": 225646,
+      "sha256": "3d07c08200d8fb2c2947aabaaab5117e239619e176247173c3cb726ab47d7a1b"
     },
     {
       "path": "assets/main-H0Y8MSOQ.css",
       "bytes": 19908,
       "sha256": "c2c10e546db2316574f04f0a331dd1b453cca5690b0a075c377a6a2feebad858"
-    },
-    {
-      "path": "assets/main-cLrnivHF.js",
-      "bytes": 211019,
-      "sha256": "dcecc89cd65acf1fd46a4b3b1b7a386204cab51235d06d89b5de7a07e50f39b6"
     },
     {
       "path": "assets/runtime-worker-qN4wlFPP.js",
@@ -40,9 +40,9 @@
       "sha256": "820e85a26189de71a18efbeb330f577557ace91748e6fbfb5d597726ec8d32b3"
     },
     {
-      "path": "assets/update-L-SOOymc.js",
+      "path": "assets/update-CjtJ6zQF.js",
       "bytes": 103,
-      "sha256": "2a84a9afff151b38e175d5481950ab5b4616accc90fb987d919f64193907d047"
+      "sha256": "08551c94b36448eda2b90116e64b5bb04a9c43817edce63874f8cb07a2c8e637"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
@@ -207,7 +207,7 @@
     {
       "path": "index.html",
       "bytes": 855,
-      "sha256": "6c2b74ca456722cac438510e971abd8b86a369750a66d394e4c901e84a6d6535"
+      "sha256": "c4e715b193ae7cef1fa286423f235a6d667b99a082f968f37631da4f20e5037b"
     },
     {
       "path": "licenses/NOTICE.html",
@@ -292,7 +292,7 @@
     {
       "path": "update.html",
       "bytes": 643,
-      "sha256": "69c11b8ba7b44fe7ce501d10248449b31ba59f4d9cec1daa638a6db99645855f"
+      "sha256": "613436f0b04b6733ac6087346035c7233fbe3684188ca1114014719aaa2dcabf"
     },
     {
       "path": "vendor/emulators.js",
@@ -670,5 +670,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "ff91c2421757c8d12fd4457405c298eb89242dffb3adb6eeba2f55a31eaee742"
+  "swSha256": "ab092782047daab4ded6713bacd40bbaab3e487eaef8646fe54a86279cab7992"
 }

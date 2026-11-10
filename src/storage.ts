@@ -2,19 +2,30 @@ import { openDB, type DBSchema } from "idb";
 import type { Archive, Profile, Save } from "./model";
 import { migrateProfile, identity, checkIdentity } from "./integrity";
 import { normalizeSave } from "./save-state";
+import { equalSave, type RecoveryPoint, type RecoveryPolicy } from "./temp-save";
 interface LauncherDB extends DBSchema {
   archives: { key: string; value: Archive };
   profiles: { key: string; value: Profile };
   saves: { key: string; value: Save };
+  recovery: { key: string; value: RecoveryPoint; indexes: { profileId: string } };
+  recoveryPolicies: { key: string; value: RecoveryPolicy };
   catalog: { key: string; value: Archive & { available: boolean } };
 }
-export const database = () =>
-  openDB<LauncherDB>("ed4-mobile-v1", 2, {
+export const database = () => {
+  let late = false, timer: ReturnType<typeof setTimeout> | undefined;
+  let rejectBlocked: (e: Error) => void;
+  const blocked = new Promise<never>((_, reject) => { rejectBlocked = reject; });
+  const opening = openDB<LauncherDB>("ed4-mobile-v1", 3, {
+    blocked() { timer ??= setTimeout(() => { late = true; rejectBlocked(Error("저장소 업데이트가 다른 실행기 탭을 기다리고 있습니다. 다른 탭의 게임을 안전하게 종료하고 탭을 닫은 뒤 다시 시도하세요. 데이터 삭제는 필요 없습니다.")); }, 8000); },
     upgrade(db, oldVersion, _newVersion, tx) {
       if (oldVersion < 1) {
         db.createObjectStore("archives", { keyPath: "id" });
         db.createObjectStore("profiles", { keyPath: "id" });
         db.createObjectStore("saves", { keyPath: "profileId" });
+      }
+      if (oldVersion < 3) {
+        db.createObjectStore("recovery", { keyPath: "id" }).createIndex("profileId", "profileId");
+        db.createObjectStore("recoveryPolicies", { keyPath: "profileId" });
       }
       if (oldVersion < 2) {
         const catalog = db.createObjectStore("catalog", { keyPath: "id" });
@@ -34,7 +45,9 @@ export const database = () =>
         })().catch(() => tx.abort());
       }
     },
-  });
+  }).then(db => { clearTimeout(timer); if (late) db.close(); else db.addEventListener("versionchange", () => db.close()); return db; });
+  return Promise.race([opening, blocked]);
+};
 export async function listCatalog() {
   const db = await database();
   const all = await db.getAll("catalog");
@@ -221,4 +234,39 @@ export function storageError(error: unknown): string {
   if (error instanceof DOMException && error.name === "QuotaExceededError")
     return "저장 공간이 부족합니다. 백업을 먼저 받은 뒤 불필요한 게임 데이터를 삭제하세요. 기존 데이터는 유지됩니다.";
   return error instanceof Error ? error.message : String(error);
+}
+
+// Additive v3 stores. Immutable recovery points and current save commit together.
+export async function recoveryPoints(profileId: string) {
+  const db = await database();
+  return (await db.getAllFromIndex('recovery', 'profileId', profileId)).sort((a,b) => b.createdAt-a.createdAt);
+}
+export async function recoveryPolicy(profileId: string) { return (await database()).get('recoveryPolicies', profileId); }
+export async function putRecoveryPolicy(policy: RecoveryPolicy) { await (await database()).put('recoveryPolicies', policy); }
+function saveBytes(save: Save) { return Object.values({...save.resources,...save.files}).reduce((n,b)=>n+b.byteLength,0); }
+export async function commitProtectedSave(profileId: string, expected: Save | undefined, next: Save | undefined, point?: RecoveryPoint) {
+  if (next && next.profileId !== profileId || point && point.profileId !== profileId) throw Error('복구 프로필 불일치');
+  const db = await database();
+  const known = point ? await db.get('recovery',point.id) : undefined;
+  await ensureSpace((next ? saveBytes(next) : 0) + (point && !known ? saveBytes(point.save) : 0));
+  const tx = db.transaction(['saves','recovery'],'readwrite');
+  try {
+    const prior = await tx.objectStore('saves').get(profileId);
+    if (!equalSave(prior ? normalizeSave(prior) : undefined, expected)) throw Error('다른 탭에서 세이브가 변경됐습니다. 현재 게임을 종료하지 않았습니다. 파일 변경분을 내보내고 다른 탭을 확인하세요.');
+    if (point && !await tx.objectStore('recovery').get(point.id)) await tx.objectStore('recovery').add(point);
+    if (next) await tx.objectStore('saves').put(normalizeSave(next));
+    await tx.done;
+  } catch(e) { try {tx.abort();} catch {} await tx.done.catch(()=>{}); throw e; }
+}
+export async function applyRecovery(profile: Profile, expected: Save | undefined, next: Save, pointId: string) {
+  const db = await database();
+  const point = await db.get('recovery',pointId);
+  if (!point || point.profileId !== profile.id) throw Error('복구 지점이 없거나 다른 프로필입니다.');
+  await replaceSaveWithBackup(profile,expected,next);
+}
+export async function replaceSaveWithBackup(profile: Profile, expected: Save | undefined, next: Save) {
+  // Keep an exact backup of current deltas (including resource deltas) before overwrite.
+  const prior = expected ?? normalizeSave({profileId:profile.id,profile,files:{},updatedAt:Date.now()});
+  const backup: RecoveryPoint = {id:crypto.randomUUID(),profileId:profile.id,sessionId:crypto.randomUUID(),createdAt:Date.now(),kind:'before-restore',candidatePaths:[],save:prior,note:'사용자 승인 복구 직전의 저장 변경분. 원본/RAW 전체는 포함하지 않습니다.'};
+  await commitProtectedSave(profile.id,expected,next,backup);
 }
