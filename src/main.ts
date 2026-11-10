@@ -721,7 +721,7 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i';cyclesPolicy?:number}, recoveryPreview?: Save) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i'|'phase9-8k';cyclesPolicy?:number}, recoveryPreview?: Save) {
   idle();
   if(launcherUpdate.locked||launcherUpdate.incompatible)throw Error('실행기 업데이트 중이거나 코드/서비스 워커 버전이 다릅니다. 업데이트 상태를 확인하세요. 게임 데이터는 유지됩니다.');
   const playEngine=!traceOptions&&$<HTMLSelectElement>('#play-engine').value==='phase9-7'?'phase9-7':'stable';
@@ -864,7 +864,7 @@ on("#stop", async () => {
   scenePanel.end();
   lastEngineMetrics = engine.diagnostics();
   await engine.stop();
-  if(['phase9-8h','phase9-8i'].includes(lastEngineMetrics?.artifact.id??''))lastEngineMetrics=engine.diagnostics();
+  if(['phase9-8h','phase9-8i','phase9-8k'].includes(lastEngineMetrics?.artifact.id??''))lastEngineMetrics=engine.diagnostics();
   engine = undefined;
   running = undefined;
   diagnosticRun=false;
@@ -1570,7 +1570,7 @@ $('.player-toolbar').insertAdjacentHTML('beforeend','<button id="screen-export">
 $('#play-area').insertAdjacentHTML('afterbegin','<div id="trace-status" role="status"></div>');
 $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="dialog-heading"><h2>임시 실행 추적</h2><button id="boot-close">닫기</button></div>
 <p>원본·세이브·프로필 설정을 바꾸지 않는 일회용 진단입니다. 진단 중 게임 저장은 종료 시 폐기됩니다.</p>
-<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option><option value="phase9-5b">실험: Phase 9-5B 텍스트 메모리 호환 · 저장 안 함</option><option value="phase9-6">실험: Phase 9-6 추적 OFF · 저장 안 함</option><option value="phase9-7">실험: Phase 9-7 모노 출력 수정 (9-6 WASM) · 저장 안 함</option><option value="phase9-8c">실험: Phase 9-8C BGM 명령 관측 · 1× · 저장 안 함</option><option value="phase9-8d">실험: Phase 9-8D INT69·시작 오디오 관측 · 1× · 저장 안 함</option><option value="phase9-8f">실험: Phase 9-8F INT69 반환·BGM 연결 후보 · 1× · 저장 안 함</option><option value="phase9-8h">Phase 9-8H 전체 2× 실험 · 음악도 가속 · 저장 안 함</option><option value="phase9-8i">Phase 9-8I 공급 안정화 · 전체 2× · 저장 안 함</option></select></label><label>9-8I 2× 동안 cycles 비교<select id="boot-cycles-policy"><option value="0">게임 설정 유지 (max 포함)</option><option value="12000">12000 고정</option><option value="16000">16000 고정</option><option value="24000">24000 고정</option></select><small>9-8I에서만 적용. 1× 복귀 시 이전 설정 복원. BAT·프로필은 변경하지 않습니다.</small></label>
+<label>이번 진단의 엔진<select id="boot-engine"><option value="stable">기존 안정 엔진 (기본값)</option><option value="phase9-2">실험: Phase 9-2 BIOS 경로 계측 · 저장 안 함</option><option value="phase9-3">실험: Phase 9-3 CPU 실행 이력 · 저장 안 함</option><option value="phase9-4">실험: Phase 9-4 최초 주소·모드 관측 · 저장 안 함</option><option value="phase9-5b">실험: Phase 9-5B 텍스트 메모리 호환 · 저장 안 함</option><option value="phase9-6">실험: Phase 9-6 추적 OFF · 저장 안 함</option><option value="phase9-7">실험: Phase 9-7 모노 출력 수정 (9-6 WASM) · 저장 안 함</option><option value="phase9-8c">실험: Phase 9-8C BGM 명령 관측 · 1× · 저장 안 함</option><option value="phase9-8d">실험: Phase 9-8D INT69·시작 오디오 관측 · 1× · 저장 안 함</option><option value="phase9-8f">실험: Phase 9-8F INT69 반환·BGM 연결 후보 · 1× · 저장 안 함</option><option value="phase9-8h">Phase 9-8H 전체 2× 실험 · 음악도 가속 · 저장 안 함</option><option value="phase9-8k">Phase 9-8K 공급 균일화 시험 · 전체 2× · 저장 안 함</option><option value="phase9-8i">Phase 9-8I 공급 안정화 · 전체 2× · 저장 안 함</option></select></label><label>9-8I/K 2× 동안 cycles 비교<select id="boot-cycles-policy"><option value="0">게임 설정 유지 (max 포함)</option><option value="12000">12000 고정</option><option value="16000">16000 고정</option><option value="24000">24000 고정</option></select><small>9-8I/K에서만 적용. 1× 복귀 시 이전 설정 복원. BAT·프로필은 변경하지 않습니다.</small></label>
 <p>실험 엔진은 재부팅 진입 경로·CPU 상태를 기록합니다. 원래 abort() 오류는 유지됩니다. 엔진만 바꾸고 BAT·CPU·메모리·음악 조건은 먼저 그대로 비교하세요. 닫거나 종료하면 안정 엔진으로 돌아갑니다.</p>
 <label>WASM 비교 진단<select id="boot-comparison"><option value="manual">기존 수동 진단</option><option value="baseline">기준: GAME.BAT + SB16 + 기존 RAW 마운트</option><option value="nosound">비교: NOSOUND.BAT만 변경</option><option value="no-raw">비교: RAW 마운트만 생략</option><option value="pc-baseline">PC 환경 기준: 현재 설정 · 믹서 출력 켬</option><option value="pc-mixer-nosound">PC 환경 비교: mixer.nosound=true만 변경</option></select></label>
 <p>WASM 비교 3종은 현재 CPU·메모리를 유지하고 동일 SB16을 사용합니다. 기준 결과부터 수집하고 한 번에 BAT 또는 RAW 마운트 하나만 비교하세요. RAW 생략은 OPFS 연결 음악에만 적용되며 본체 파일을 삭제하지 않습니다. NOSOUND의 실제 명령 순서를 먼저 확인하세요.</p>
@@ -1641,10 +1641,10 @@ on('#boot-start',async()=>{
   dosConfig({...current(),settings}); // validate before closing or starting
   const comparison=selectedComparison();
   const selectedEngine=$<HTMLSelectElement>('#boot-engine').value;
-  const experimentalEngine=selectedEngine==='phase9-2'||selectedEngine==='phase9-3'||selectedEngine==='phase9-4'||selectedEngine==='phase9-5b'||selectedEngine==='phase9-6'||selectedEngine==='phase9-7'||selectedEngine==='phase9-8c'||selectedEngine==='phase9-8d'||selectedEngine==='phase9-8f'||selectedEngine==='phase9-8h'||selectedEngine==='phase9-8i'?selectedEngine:undefined;
+  const experimentalEngine=selectedEngine==='phase9-2'||selectedEngine==='phase9-3'||selectedEngine==='phase9-4'||selectedEngine==='phase9-5b'||selectedEngine==='phase9-6'||selectedEngine==='phase9-7'||selectedEngine==='phase9-8c'||selectedEngine==='phase9-8d'||selectedEngine==='phase9-8f'||selectedEngine==='phase9-8h'||selectedEngine==='phase9-8i'||selectedEngine==='phase9-8k'?selectedEngine:undefined;
   $<HTMLSelectElement>('#boot-engine').value='stable';
   $<HTMLDialogElement>('#boot-dialog').close();bootFiles={};
-  await startGame({...comparison??{entry,settings,mode:'manual'},experimentalEngine,cyclesPolicy:experimentalEngine==='phase9-8i'?Number($<HTMLSelectElement>('#boot-cycles-policy').value):undefined});
+  await startGame({...comparison??{entry,settings,mode:'manual'},experimentalEngine,cyclesPolicy:(experimentalEngine==='phase9-8i'||experimentalEngine==='phase9-8k')?Number($<HTMLSelectElement>('#boot-cycles-policy').value):undefined});
 });
 on('#screen-export',async()=>{
   const blob=await new Promise<Blob|null>(resolve=>$<HTMLCanvasElement>('#canvas').toBlob(resolve,'image/png'));

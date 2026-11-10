@@ -1,0 +1,46 @@
+{
+  "id": "phase9-8k",
+  "emulators": "0.73.8",
+  "emscripten": "3.1.21",
+  "files": {
+    "wdosbox.js": {
+      "sha256": "a081953692340a52fb292b16d7d7b961b681c6afebf5b4ee94c5c14165961018",
+      "bytes": 127620
+    },
+    "wdosbox.wasm": {
+      "sha256": "3956d653260f5e69a1cef18785376ba13676d6e5f33d2a118dfde9aa10f89010",
+      "bytes": 1467543
+    },
+    "wdosbox.js.symbols": {
+      "sha256": "2e20a55c1199c8d40a41105dce72fd532e9117aa7ba377846380eb3c83b0955e",
+      "bytes": 240159
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    "DOSBOX-COPYING": {
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374",
+      "bytes": 17995
+    },
+    "SOURCE.txt": {
+      "sha256": "97203a4359931648d93c6a70362255c1c5d3253d345653be4fd269e6dc9f3c3e",
+      "bytes": 270
+    }
+  },
+  "changes": {
+    "baseSourceSha256": "3ec48eef68f528df8aeb143691c01dce5e16bc03f38a8bfe16004d0f4bfe42bb",
+    "changes": [
+      {
+        "path": "native/dosbox/src/dosbox.cpp",
+        "before": "a1ea229ab13181ae2396b50b95a5b3d7e2f065dfe9fa6ed240a5e3c4d800b77d",
+        "after": "5d1960853a070700eebd5e45a5594fe581a40d83be5e31cd9833f7c50a32676f"
+      }
+    ],
+    "timerSource": "I multiplier unchanged; 20ms clamp preserved and counted",
+    "scheduler": "4ms cooperative deadline at completed guest-tick boundaries; accumulated auto-adjust wall time preserved on zero-duration polls",
+    "audioClock": "Unchanged I PIC mixer / 512-frame push / ring preroll",
+    "idleAccounting": "Exclude measured idle wall wait, preserving accumulated CPU/PIC processing wall time and original auto-adjust target"
+  },
+  "sourceZipSha256": "c7352ef0dfbabab269feda2af3e06d2c558f1b205eda1b36d5d1a293f4b26b63"
+}

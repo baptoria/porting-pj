@@ -1,6 +1,8 @@
+import { RateWindows } from "./rate-windows";
 /** I Worker batches metadata at 4Hz; PCM goes directly to the AudioWorklet. */
 export class AudioSupply {
   private latest: any = null;
+  private rates=new RateWindows();
   private rows: any[] = [];
   private delays = 0;
   private delaySum = 0;
@@ -16,6 +18,7 @@ export class AudioSupply {
     this.delaySum += delay;
     this.delayMax = Math.max(this.delayMax, delay);
     this.latest = p;
+    this.rates.accept(p.rateWindows);
     if (this.rows.length === 128) this.rows.shift();
     this.rows.push({
       at: p.elapsedMs,
@@ -30,6 +33,7 @@ export class AudioSupply {
     if (!p) return { source: "not-sampled", samplesExported: false };
     return {
       source: "worker-direct-port",
+      rateWindows:p.rateWindows?this.rates.report():undefined,
       packets: p.packets,
       frames: p.frames,
       framesPerSecond: p.frames / Math.max(0.001, p.elapsedMs / 1000),

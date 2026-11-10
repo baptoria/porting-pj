@@ -1,9 +1,12 @@
+import { RateWindows } from "./rate-windows";
+import { PCM_WORKLET as K_WORKLET } from "./generated/phase9-8k-worklet";
 import { PCM_WORKLET } from "./generated/phase9-8i-worklet";
 import type { Speed } from "./speed-control";
 /** I only. Existing H/9-7 audio remains available; unsupported worklet fails explicitly. */
 export class WorkletAudio {
   readonly inputPort: MessagePort;
   rate: Speed = 1;
+  private confirmedRate:Speed=1;
   private state: any = {
     rate: 1,
     queueAheadMs: 0,
@@ -13,6 +16,7 @@ export class WorkletAudio {
     underruns: 0,
   };
   private sequence = 0;
+  private rates=new RateWindows();
   private closed = false;
   private pending = new Map<
     number,
@@ -25,6 +29,7 @@ export class WorkletAudio {
   private constructor(
     private node: AudioWorkletNode,
     private issue: (s: string) => void,
+    private descriptor: {file:string;sha256:string}=PCM_WORKLET,
   ) {
     const channel = new MessageChannel();
     this.inputPort = channel.port2;
@@ -33,7 +38,7 @@ export class WorkletAudio {
     ]);
     node.port.onmessage = (e) => {
       const p = e.data;
-      if (p.kind === "stats") this.state = p.stats;
+      if (p.kind === "stats") {this.rates.accept(p.stats.rateWindows);this.state = {...p.stats, observedAtMs:performance.now()};}
       else if (p.kind === "error") issue(p.message);
       else if (p.kind === "ack") {
         const r = this.pending.get(p.id);
@@ -41,7 +46,7 @@ export class WorkletAudio {
           clearTimeout(r.timer);
           this.pending.delete(p.id);
           if (p.rate !== this.rate) r.reject(Error("Worklet 배속 불일치"));
-          else r.resolve();
+          else {this.confirmedRate=p.rate;r.resolve();}
         }
       }
     };
@@ -52,7 +57,9 @@ export class WorkletAudio {
     ctx: AudioContext,
     output: AudioNode,
     issue: (s: string) => void,
+    engine: string="phase9-8i",
   ) {
+    const descriptor=engine==="phase9-8k"?K_WORKLET:PCM_WORKLET;
     if (
       !isSecureContext ||
       !ctx.audioWorklet ||
@@ -61,7 +68,7 @@ export class WorkletAudio {
       throw Error(
         "9-8I는 HTTPS/AudioWorklet 지원이 필요합니다. 기존9-7/H는 유지됩니다.",
       );
-    const r = await fetch(import.meta.env.BASE_URL + PCM_WORKLET.file, {
+    const r = await fetch(import.meta.env.BASE_URL + descriptor.file, {
       signal: AbortSignal.timeout(15000),
     });
     if (!r.ok) throw Error("AudioWorklet 파일 로딩 실패");
@@ -70,19 +77,19 @@ export class WorkletAudio {
       new Uint8Array(await crypto.subtle.digest("SHA-256", b)),
       (n) => n.toString(16).padStart(2, "0"),
     ).join("");
-    if (hash !== PCM_WORKLET.sha256) throw Error("AudioWorklet 무결성 불일치");
+    if (hash !== descriptor.sha256) throw Error("AudioWorklet 무결성 불일치");
     const url = URL.createObjectURL(new Blob([b], { type: "text/javascript" }));
     try {
       await ctx.audioWorklet.addModule(url);
     } finally {
       URL.revokeObjectURL(url);
     }
-    const node = new AudioWorkletNode(ctx, "ed4-pcm-i", {
+    const node = new AudioWorkletNode(ctx, engine==="phase9-8k"?"ed4-pcm-k":"ed4-pcm-i", {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [1],
     });
-    const result = new WorkletAudio(node, issue);
+    const result = new WorkletAudio(node, issue,descriptor);
     node.connect(output);
     await result.setRate(1);
     return result;
@@ -118,9 +125,11 @@ export class WorkletAudio {
   report() {
     return {
       ...this.state,
-      rate: this.rate,
+      rateWindows:this.state.rateWindows?this.rates.report():undefined,
+      rate: this.descriptor===K_WORKLET?this.confirmedRate:this.rate,
+      requestedRate:this.rate,
       adapter: "worklet-ring-v1",
-      worklet: PCM_WORKLET,
+      worklet: this.descriptor,
       sourceNodesCreated: 0,
     };
   }

@@ -2,11 +2,11 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8j-20261110044316523-bea15352",
-    "commit": "f7ee6bb62748",
+    "id": "9-8k-20261110062603493-b9844185",
+    "commit": "a9d31289f6d3",
     "dirty": true,
-    "builtAt": "2026-11-10T04:43:16.523Z",
-    "revision": "phase9-8j-1"
+    "builtAt": "2026-11-10T06:26:03.493Z",
+    "revision": "phase9-8k-1"
   },
   "files": [
     {
@@ -15,14 +15,14 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-B7N15_75.js",
+      "path": "assets/launcher-update-DBkIAt9_.js",
       "bytes": 6797,
-      "sha256": "65f72181d2b1c19a53ec66f2b429f00aecfc0aa820ceea81f82c697d47f4539f"
+      "sha256": "cb8578fbfd3b630480a520580728e9e5f21d5be32675039340b3d8749a1b57e2"
     },
     {
-      "path": "assets/main-DKs6_hnK.js",
-      "bytes": 225646,
-      "sha256": "3d07c08200d8fb2c2947aabaaab5117e239619e176247173c3cb726ab47d7a1b"
+      "path": "assets/main-Cux9-fI5.js",
+      "bytes": 228886,
+      "sha256": "94f40099d2c90cc217be82bcd154405351970ba63ea807886de6552840db9062"
     },
     {
       "path": "assets/main-H0Y8MSOQ.css",
@@ -40,9 +40,9 @@
       "sha256": "820e85a26189de71a18efbeb330f577557ace91748e6fbfb5d597726ec8d32b3"
     },
     {
-      "path": "assets/update-CjtJ6zQF.js",
+      "path": "assets/update-DLChJ8lJ.js",
       "bytes": 103,
-      "sha256": "08551c94b36448eda2b90116e64b5bb04a9c43817edce63874f8cb07a2c8e637"
+      "sha256": "989c455dbccd767f5cf0fa4c0a151f4c488feeacdf70684e0cc45d32204a53df"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
@@ -53,6 +53,11 @@
       "path": "audio-worklet-phase9-8i-31bb6b4237d030a5.js",
       "bytes": 5334,
       "sha256": "31bb6b4237d030a599b5e47f4a28b4fb04978da55a829f9d9196ae269c1afa07"
+    },
+    {
+      "path": "audio-worklet-phase9-8k-49773dd9179413ca.js",
+      "bytes": 7648,
+      "sha256": "49773dd9179413cad15e41fe5c32d11cd84c3e921021e099237728c34c03f948"
     },
     {
       "path": "dos-worker-common-phase9-3-735ee752056417c8.js",
@@ -103,6 +108,11 @@
       "path": "dos-worker-common-phase9-8i-25b4e39c37e65a1a.js",
       "bytes": 17391,
       "sha256": "25b4e39c37e65a1aa794153640558344496f765b95d80fd405421e863f0b2894"
+    },
+    {
+      "path": "dos-worker-common-phase9-8k-38f8b4d65f003a5c.js",
+      "bytes": 20599,
+      "sha256": "38f8b4d65f003a5c78fa7717ea7d95ebcd005da1562971893c43cacf039e33ac"
     },
     {
       "path": "dos-worker-phase9-2.js",
@@ -185,6 +195,11 @@
       "sha256": "1c0932991575ab366701fbd64c9fe1fb251cb7ace8af0d891a3f4320dd74e4e9"
     },
     {
+      "path": "dos-worker-phase9-8k-3ab5b8e59286cedc.js",
+      "bytes": 689,
+      "sha256": "3ab5b8e59286cedc55371877dfcde4bbd78f1a371b0e5085b2cecba3c938bea5"
+    },
+    {
       "path": "dos-worker.js",
       "bytes": 8307,
       "sha256": "735ee752056417c87beb4c45ee9b23a38754c168026b947bd3d6446144fb03d7"
@@ -207,7 +222,7 @@
     {
       "path": "index.html",
       "bytes": 855,
-      "sha256": "c4e715b193ae7cef1fa286423f235a6d667b99a082f968f37631da4f20e5037b"
+      "sha256": "c709c4e2099c12070eb5c7133170ad5ac4d01ac9f89881dd2248de4ace67fd18"
     },
     {
       "path": "licenses/NOTICE.html",
@@ -285,6 +300,11 @@
       "sha256": "ff5009c08935b5bf07c967d87c288b1f22430aa24d8e837f790d211ad84cd6f9"
     },
     {
+      "path": "phase9-8k-worker.json",
+      "bytes": 321,
+      "sha256": "0d611594989efada4abff67d53335c453d26c3c1f4db007a43c534f6c92670a2"
+    },
+    {
       "path": "test-program.zip",
       "bytes": 1042,
       "sha256": "9aa2e45e4d44f2673e61c72f5541a424c23573f36e7cd56ffd2a3d8ca199cb71"
@@ -292,7 +312,7 @@
     {
       "path": "update.html",
       "bytes": 643,
-      "sha256": "613436f0b04b6733ac6087346035c7233fbe3684188ca1114014719aaa2dcabf"
+      "sha256": "d997b40f9cf3d97e20f4bee55740f383c29e9c8d08037a25a15c2045e8bc6677"
     },
     {
       "path": "vendor/emulators.js",
@@ -650,6 +670,41 @@
       "sha256": "a10cbc965e710fda680df68ce69f74bea2f4343ac64d1efdaec8d312c517c873"
     },
     {
+      "path": "vendor/experimental/phase9-8k/DOSBOX-COPYING",
+      "bytes": 17995,
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374"
+    },
+    {
+      "path": "vendor/experimental/phase9-8k/LICENSE",
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "path": "vendor/experimental/phase9-8k/SOURCE.txt",
+      "bytes": 270,
+      "sha256": "97203a4359931648d93c6a70362255c1c5d3253d345653be4fd269e6dc9f3c3e"
+    },
+    {
+      "path": "vendor/experimental/phase9-8k/manifest.json",
+      "bytes": 1798,
+      "sha256": "377bfc9d9213a384b746de28e32325fcd09759d6745e3c3cbebe58e1acd75a1e"
+    },
+    {
+      "path": "vendor/experimental/phase9-8k/wdosbox.js",
+      "bytes": 127620,
+      "sha256": "a081953692340a52fb292b16d7d7b961b681c6afebf5b4ee94c5c14165961018"
+    },
+    {
+      "path": "vendor/experimental/phase9-8k/wdosbox.js.symbols",
+      "bytes": 240159,
+      "sha256": "2e20a55c1199c8d40a41105dce72fd532e9117aa7ba377846380eb3c83b0955e"
+    },
+    {
+      "path": "vendor/experimental/phase9-8k/wdosbox.wasm",
+      "bytes": 1467543,
+      "sha256": "3956d653260f5e69a1cef18785376ba13676d6e5f33d2a118dfde9aa10f89010"
+    },
+    {
       "path": "vendor/wdosbox.js",
       "bytes": 125962,
       "sha256": "80c871923d6265625a4ca3ee9799c2a856eeae6a88fc535a100fd5d98c004abc"
@@ -670,5 +725,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "ab092782047daab4ded6713bacd40bbaab3e487eaef8646fe54a86279cab7992"
+  "swSha256": "0f9abe1a327bbe31bc7e4a986ca3734b065f490afc612db48d5ecb3649fe669a"
 }

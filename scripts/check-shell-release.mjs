@@ -9,7 +9,7 @@ const sw=await readFile(root+'sw.js');if(hash(sw)!==manifest.swSha256)throw Erro
 for(const f of manifest.files){const bytes=await readFile(root+f.path);if(bytes.length!==f.bytes||hash(bytes)!==f.sha256)throw Error('Artifact mismatch '+f.path);}
 const html=await readFile(root+'index.html','utf8'),entry=html.match(/src="\/porting-pj\/ed4\/(assets\/[^" ]+\.js)"/)?.[1];
 if(!entry)throw Error('Wrong subpath or missing entry');
-const js=await readFile(root+entry,'utf8');for(const engine of ['phase9-7','phase9-8c','phase9-8d','phase9-8f','phase9-8h','phase9-8i'])if(!js.includes(engine))throw Error('Missing engine '+engine);
+const js=await readFile(root+entry,'utf8');for(const engine of ['phase9-7','phase9-8c','phase9-8d','phase9-8f','phase9-8h','phase9-8i','phase9-8k'])if(!js.includes(engine))throw Error('Missing engine '+engine);
 const helpers=manifest.files.filter(f=>f.path.startsWith('assets/')&&f.path.endsWith('.js'));let hasBuild=false;for(const f of helpers)if((await readFile(root+f.path,'utf8')).includes(build.id))hasBuild=true;if(!hasBuild)throw Error('Build ID not in frontend');
 async function walk(dir){return (await Promise.all((await readdir(dir,{withFileTypes:true})).map(e=>e.isDirectory()?walk(dir+e.name+'/'):dir+e.name))).flat();}
 const oversized=[],forbidden=[],normalization=[];

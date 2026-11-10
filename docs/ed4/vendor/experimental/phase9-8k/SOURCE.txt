@@ -1,0 +1,2 @@
+GPL-2.0-or-later emulators 0.73.8. Full corresponding source: ../../../sources/emulators-0.73.8-phase9-8k-source.zip
+See BUILD-PHASE9-8K.md. I timer/mixer/observer retained; K bounded cooperative yields and auto-adjust wall accounting; speed segmented supply telemetry.

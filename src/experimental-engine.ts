@@ -1,3 +1,4 @@
+import {SUPPLY_ENGINE} from './generated/phase9-8k-engine';
 import {STABILITY_ENGINE} from './generated/phase9-8i-engine';
 import {INTEGRATED_SPEED_ENGINE} from './generated/phase9-8h-engine';
 import { BGM_BOUNDARY_ENGINE } from './generated/phase9-8d-engine';
@@ -16,8 +17,8 @@ export const MEMORY_COMPAT_ENGINE={id:'phase9-5b',wasmSha256:'81ee12956f39cc0b8f
 export const PERFORMANCE_ENGINE={id:'phase9-6',wasmSha256:'f7f88a62de8e99d241eb16f07d30fa4b75049843e41de1e7d60c80c04eebfed3',directory:'vendor/experimental/phase9-6/'} as const;
 // Host audio adapter experiment: exactly the reviewed Phase 9-6 WASM/Worker.
 export const AUDIO_ENGINE={...PERFORMANCE_ENGINE,id:'phase9-7'} as const;
-export type ExperimentalEngineId='phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i';
-export const experimentalEngine=(id:ExperimentalEngineId)=>id==='phase9-8i'?STABILITY_ENGINE:id==='phase9-8h'?INTEGRATED_SPEED_ENGINE:id==='phase9-8f'?BGM_LINK_ENGINE:id==='phase9-8d'?BGM_BOUNDARY_ENGINE:id==='phase9-8c'?BGM_ENGINE:id==='phase9-7'?AUDIO_ENGINE:id==='phase9-6'?PERFORMANCE_ENGINE:id==='phase9-5b'?MEMORY_COMPAT_ENGINE:id==='phase9-4'?FIRST_TRACE_ENGINE:id==='phase9-3'?CPU_TRACE_ENGINE:REBOOT_ENGINE;
+export type ExperimentalEngineId='phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i'|'phase9-8k';
+export const experimentalEngine=(id:ExperimentalEngineId)=>id==='phase9-8k'?SUPPLY_ENGINE:id==='phase9-8i'?STABILITY_ENGINE:id==='phase9-8h'?INTEGRATED_SPEED_ENGINE:id==='phase9-8f'?BGM_LINK_ENGINE:id==='phase9-8d'?BGM_BOUNDARY_ENGINE:id==='phase9-8c'?BGM_ENGINE:id==='phase9-7'?AUDIO_ENGINE:id==='phase9-6'?PERFORMANCE_ENGINE:id==='phase9-5b'?MEMORY_COMPAT_ENGINE:id==='phase9-4'?FIRST_TRACE_ENGINE:id==='phase9-3'?CPU_TRACE_ENGINE:REBOOT_ENGINE;
 export async function prepareRebootEngine(id:ExperimentalEngineId='phase9-2'){
  const engine=experimentalEngine(id);
  const response=await fetch(`${import.meta.env.BASE_URL}${engine.directory}wdosbox.wasm`,{signal:AbortSignal.timeout(30000)});

@@ -68,3 +68,7 @@
 **/dos-worker*phase9-8i*.js -text
 **/audio-worklet-phase9-8i-*.js -text
 scripts/phase9-8i-speed-worker.js -text
+
+**/dos-worker*phase9-8k*.js -text
+**/audio-worklet-phase9-8k-*.js -text
+scripts/phase9-8k-speed-worker.js -text
