@@ -3,7 +3,7 @@ import { unlink } from "node:fs/promises";
 export default defineConfig({
   base: "/porting-pj/ed4/",
   build: { outDir: "docs/ed4", rollupOptions:{input:{main:'index.html',update:'update.html'}} },
-  define: { "import.meta.env.VITE_INCLUDE_SYNTHETIC_RAW": '"false"' },
+  define: { "import.meta.env.VITE_DEVELOPER_TOOLS": JSON.stringify(process.env.ED4_DEVELOPER_BUILD === "1" ? "true" : "false"), "import.meta.env.VITE_INCLUDE_SYNTHETIC_RAW": '"false"' },
   plugins: [{
     name: "manual-pages-without-raw-payloads",
     async closeBundle() {

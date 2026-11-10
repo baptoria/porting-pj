@@ -1,6 +1,8 @@
+import {folderFixture} from '../folder-fixture';
 import {test,expect} from '@playwright/test';
 import {readdir,readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
+import {unzipSync,strToU8} from 'fflate';
 async function files(dir:string):Promise<string[]>{return (await Promise.all((await readdir(dir,{withFileTypes:true})).map(e=>e.isDirectory()?files(`${dir}/${e.name}`):`${dir}/${e.name}`))).flat();}
 test('strict subpath: every asset, MIME, manifest, cache isolation and DOS offline persistence',async({page,context,request},info)=>{
  const results:{path:string;status:number;contentType:string}[]=[],errors:string[]=[];
@@ -36,7 +38,12 @@ test('strict subpath: every asset, MIME, manifest, cache isolation and DOS offli
  expect(cache.urls.some(u=>u.includes('/sources/'))).toBe(false);
  expect(cache.urls.some(u=>u.endsWith('/dos-worker.js'))).toBe(true);
  for(const worker of ['zip-worker-','runtime-worker-','source-worker-'])expect(cache.urls.some(u=>u.includes(worker))).toBe(true);
- await page.locator('#demo').click();await expect(page.locator('#status')).toContainText('공개 테스트 준비 완료');
+ if(await page.locator('body').getAttribute('data-build-audience')==='public'){
+  // Public builds deliberately do not expose the developer demo button.
+  await page.locator('#simple-import').click();
+  await page.locator('#simple-folder').setInputFiles(await folderFixture({...unzipSync(await readFile('public/test-program.zip')),'GAME.BAT':strToU8('ED4TEST.COM\r\n')},'public-dos-test'));
+  await expect(page.locator('#simple-import-dialog')).not.toBeVisible();
+ }else{await page.locator('#demo').click();await expect(page.locator('#status')).toContainText('공개 테스트 준비 완료');}
  // Exercise OPFS/ZIP import Worker under the prefix using test-only PCM bytes.
  const raw=Buffer.alloc(12);raw.write('RAWTEST1');await page.locator('#music-files').setInputFiles({name:'ED4-01.RAW',mimeType:'application/octet-stream',buffer:raw});await expect(page.locator('#music-track option')).toHaveCount(1);
  await page.locator('#music-link').click();await expect(page.locator('#status')).toContainText('연결했습니다');
@@ -44,7 +51,7 @@ test('strict subpath: every asset, MIME, manifest, cache isolation and DOS offli
  await page.keyboard.press('ArrowUp');await expect(page.locator('#logs')).toContainText('KEY RECEIVED');await page.keyboard.press('m');await expect(page.locator('#logs')).toContainText('RAWTEST1 RAW READ AND SEEK OK');await page.keyboard.press('s');await expect(page.locator('#logs')).toContainText('SAVE WRITTEN');
  await expect(page.locator('#canvas')).toHaveAttribute('data-audio-state','running');await page.screenshot({path:info.outputPath('pages-dos.png')});
  await page.locator('#stop').click();await expect(page.locator('#run-state')).toHaveText('종료됨');
- await context.setOffline(true);await page.reload();await expect(page.locator('#profile-title')).toHaveText('공개 DOS 테스트');await page.locator('#play').click();await expect(page.locator('#run-state')).toHaveText('실행 중');await page.keyboard.press('l');await expect(page.locator('#logs')).toContainText('ED4_SAVE_OK!');await page.keyboard.press('m');await expect(page.locator('#logs')).toContainText('RAWTEST1');await page.locator('#stop').click();await expect(page.locator('#run-state')).toHaveText('종료됨');
+ await context.setOffline(true);await page.reload();await expect(page.locator('#profile-title')).toHaveText(await page.locator('body').getAttribute('data-build-audience')==='public'?'public-dos-test':'공개 DOS 테스트');await page.locator('#play').click();await expect(page.locator('#run-state')).toHaveText('실행 중');await page.keyboard.press('l');await expect(page.locator('#logs')).toContainText('ED4_SAVE_OK!');await page.keyboard.press('m');await expect(page.locator('#logs')).toContainText('RAWTEST1');await page.locator('#stop').click();await expect(page.locator('#run-state')).toHaveText('종료됨');
  expect(errors).toEqual([]);await writeFile(info.outputPath('pages-check.json'),JSON.stringify({scope:'Local strict subpath, NOT a live GitHub deployment or Galaxy test',results,manifest,cache,errors,dos:true,opfs:true,audio:true,offlineSaveRestore:true},null,2));
 });
 

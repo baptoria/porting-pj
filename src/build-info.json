@@ -1,7 +1,8 @@
 {
-  "id": "9-8l-20261110082359907-5b72d685",
-  "commit": "0988a6e4551f",
+  "id": "9-8n-public-20261110114716983-efb9c3d9",
+  "commit": "528d433b3e00",
   "dirty": true,
-  "builtAt": "2026-11-10T08:23:59.907Z",
-  "revision": "phase9-8l-1"
+  "builtAt": "2026-11-10T11:47:16.983Z",
+  "revision": "phase9-8n-iso-1",
+  "audience": "public"
 }

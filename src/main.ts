@@ -1,6 +1,9 @@
+import {DEVELOPER_TOOLS, DEVELOPER_ACTIONS, requireDeveloperTools} from './build-policy';
+import {installPublicLauncher} from './public-launcher';
 import {EnvironmentObservation,observeEnvironmentBatch,executableIdentities,type EnvironmentMode} from './environment-comparison';
 import "./style.css";
 import "./launcher.css";
+import "./public-launcher.css";
 import {installLauncherLayout} from "./launcher-layout";
 import {
   compose,
@@ -72,7 +75,7 @@ const esc = (s: string) =>
   );
 const size = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MiB`;
 const kindName = {
-  vanilla: "바닐라",
+  vanilla: DEVELOPER_TOOLS?"바닐라":"원본 게임",
   patch: "수정 파일 모드",
   standalone: "독립 모드",
 };
@@ -297,6 +300,7 @@ $(".diagnostics").insertAdjacentHTML(
   '<section class="card phase2-card"><div class="card-heading"><h3>게임 버전 참고 / 모드 호환성 진단</h3><button id="inspect-profile">파일 구조·충돌 검사</button></div><pre id="compatibility-report">프로필을 선택해 원본 버전, 경로, 레이어 및 저장 충돌을 확인하세요.</pre><button id="export-diagnostics">실행 로그·진단 JSON 내보내기</button><p class="hint">게임 파일 내용은 내보내지 않습니다. 파일 경로·프로필 설정·실행 로그는 포함됩니다. 메모리 수치는 정확한 버퍼 크기와 지원 브라우저의 관측값이며 전체 peak/RSS가 아닙니다.</p></section>',
 );
 $("#preset").addEventListener("change", () => {
+  if(!DEVELOPER_TOOLS)return;
   const preset = PRESETS[$<HTMLSelectElement>("#preset").value];
   if (!preset) return;
   $<HTMLInputElement>("#cycles").value = String(preset.settings.cycles);
@@ -304,6 +308,7 @@ $("#preset").addEventListener("change", () => {
   $<HTMLSelectElement>("#sound").value = preset.settings.sound;
 });
 async function diagnostic() {
+  requireDeveloperTools();
   await engine?.refreshAudioDiagnostics();
   const p = selected ? current() : undefined;
   const save = p ? await getSave(p.id) : undefined;
@@ -473,7 +478,7 @@ async function task(action: () => Promise<void>) {
   }
 }
 function on(id: string, action: () => Promise<void>) {
-  $(id).addEventListener("click", () => void task(action));
+  $(id).addEventListener("click", () => void task(async()=>{if(DEVELOPER_ACTIONS.has(id))requireDeveloperTools();await action();}));
 }
 function updateButtons() {
   $("#play").toggleAttribute("disabled", !!engine || !selected || busy);
@@ -724,6 +729,7 @@ async function checkpoint() {
   }
 }
 async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i'|'phase9-8k';cyclesPolicy?:number}, recoveryPreview?: Save) {
+  if(traceOptions)requireDeveloperTools();
   idle();
   if(launcherUpdate.locked||launcherUpdate.incompatible)throw Error('실행기 업데이트 중이거나 코드/서비스 워커 버전이 다릅니다. 업데이트 상태를 확인하세요. 게임 데이터는 유지됩니다.');
   const playEngine=!traceOptions&&$<HTMLSelectElement>('#play-engine').value==='phase9-7'?'phase9-7':'stable';
@@ -812,7 +818,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     launchStep("runtime-build");
     const bundle = await buildRuntime(p, input, save, temporary,traceOptions?.environment);
     launchStep("worker-wasm-start");
-    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true,cyclesPolicy:traceOptions.cyclesPolicy}:playEngine==='phase9-7'?(recoveryPreview?{id:'phase9-7',discardWrites:true}:{id:'phase9-7',discardWrites:false,purpose:'normal-play'}):undefined);
+    await engine.start(bundle, mountedMusic,traceOptions?.experimentalEngine?{id:traceOptions.experimentalEngine,discardWrites:true,cyclesPolicy:traceOptions.cyclesPolicy}:playEngine==='phase9-7'?(recoveryPreview?{id:'phase9-7',discardWrites:true,purpose:'recovery-preview'}:{id:'phase9-7',discardWrites:false,purpose:'normal-play'}):undefined);
     launchStep("backend-ready");
     scenePanel.ready();
     running = structuredClone(p);
@@ -824,7 +830,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     renderSpeed();
     $("#canvas").focus();
     $('#stop').textContent=diagnosticRun?'진단 종료 (저장 안 함)':'저장 후 종료';
-    status(diagnosticRun?'임시/복구 시험 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
+    status(diagnosticRun?(DEVELOPER_TOOLS?'임시/복구 시험 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'복구 미리보기 중입니다. 이 실행에서 바뀐 내용은 저장하지 않습니다.'):'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
   } catch (e) {
     scenePanel.end();
     lastEngineMetrics=engine?.diagnostics(); // Retain early WASM failures after cleanup.
@@ -832,7 +838,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     engine = undefined;
     diagnosticRun=false;
     $("#run-state").textContent = "시작 실패";
-    throw Error("실행 실패 단계: "+launchStage+"\n"+storageError(e) + "\n설정에서 실행 파일·음악 연결을 확인하세요. 해결되지 않으면 실행 로그·진단 JSON을 내려받으세요. 기존 세이브는 유지됩니다.");
+    throw Error("실행 실패 단계: "+launchStage+"\n"+storageError(e) + (DEVELOPER_TOOLS?"\n설정에서 실행 파일·음악 연결을 확인하세요. 해결되지 않으면 실행 로그·진단 JSON을 내려받으세요. 기존 세이브는 유지됩니다.":"\n게임 설정의 실행 파일과 음악 연결을 확인하세요. 계속 실패하면 별도 개발 빌드로 원인을 확인할 수 있습니다. 기존 저장은 유지됩니다."));
   }
 }
 on('#play',()=>startGame());
@@ -1133,7 +1139,7 @@ $("#settings-form").addEventListener("submit", (e) => {
     p.name = $<HTMLInputElement>("#edit-name").value.trim() || p.name;
     p.executable = $<HTMLSelectElement>("#edit-exe").value;
     validateExecutable(p.executable, await profileFiles(p));
-    p.settings = {
+    if(DEVELOPER_TOOLS) p.settings = {
       cycles: Number($<HTMLInputElement>("#cycles").value),
       memory: Number($<HTMLSelectElement>("#memory").value),
       sound: $<HTMLSelectElement>("#sound")
@@ -1585,6 +1591,7 @@ $('#app').insertAdjacentHTML('beforeend',`<dialog id="boot-dialog"><div class="d
 <p id="boot-block-reason" role="status"></p><button id="boot-start" aria-describedby="boot-block-reason">임시 진단 실행 (저장 안 함)</button></dialog>`);
 $('#run-diagnostics').onclick=()=>$('#export-diagnostics').click();
 $('#run-performance').onclick=async()=>{
+  if(!DEVELOPER_TOOLS){status('성능 측정은 개발 빌드에서만 사용할 수 있습니다.',true);return;}
   if(!engine){status('게임 메뉴에 진입한 뒤 측정하세요.',true);return;}
   const button=$<HTMLButtonElement>('#run-performance');button.disabled=true;button.textContent='30초 측정 중…';
   try{const result=await engine.measurePerformance();log(result.valid?`성능 측정 완료: 화면 콜백 ${result.frameCallbacksPerSecond.toFixed(2)}/초 · 표시 기회 ${result.canvasPaintOpportunitiesPerSecond.toFixed(2)}/초. 진단 JSON에 별도 구간을 기록했습니다.`:'성능 측정 무효: 종료·일시정지·백그라운드 여부를 확인하고 같은 장면에서 다시 측정하세요.');}
@@ -1594,6 +1601,7 @@ $('#run-performance').onclick=async()=>{
 $('#boot-close').onclick=()=>$<HTMLDialogElement>('#boot-dialog').close();
 let bootFiles:Files={};
 function selectedComparison(){
+  requireDeveloperTools();
   const mode=$<HTMLSelectElement>('#boot-comparison').value as ComparisonMode;
   return mode==='manual'?undefined:runtimeComparison(mode,bootFiles,current().executable,current().settings);
 }
@@ -1609,6 +1617,7 @@ $('#boot-comparison').onchange=()=>{
   }catch(e){$('#boot-block-reason').textContent=String(e);$<HTMLButtonElement>('#boot-start').disabled=true;}
 };
 function showBootAnalysis(){
+  requireDeveloperTools();
   const plan=bootPlan(bootFiles,$<HTMLSelectElement>('#boot-entry').value,current().settings.prelude);
   $('#boot-analysis').textContent=plan.steps.map(s=>`${s.id}. ${s.batch}:${s.line} [${s.category}] ${s.command}${s.afterExpected?'':' (BAT 연결: 반환 마커 없음)'}`).join('\n')+
     '\n\n확인 사항: '+(plan.issues.join('\n')||'지원하는 직선 실행 흐름. 실제 동작은 Galaxy에서 확인하세요.')+
@@ -1648,7 +1657,7 @@ on('#boot-start',async()=>{
 });
 on('#screen-export',async()=>{
   const blob=await new Promise<Blob|null>(resolve=>$<HTMLCanvasElement>('#canvas').toBlob(resolve,'image/png'));
-  if(!blob)throw Error('화면 저장 실패. 진단 JSON을 내려받거나 기기 화면 캡처를 사용하세요.');
+  if(!blob)throw Error(DEVELOPER_TOOLS?'화면 저장 실패. 진단 JSON을 내려받거나 기기 화면 캡처를 사용하세요.':'화면을 저장하지 못했습니다. 기기의 화면 캡처 기능을 사용하세요.');
   download(new Uint8Array(await blob.arrayBuffer()),'ed4-dos-screen.png');
 });
 
@@ -1670,3 +1679,5 @@ const scenePanel=installScenePanel($('.player-toolbar'),()=>engine,download);
 for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelectElement>('#'+id);field.disabled=true;field.title='기존 설정은 보존됩니다. ED4 오버레이는 Enter/ESC 고정입니다.';}
 
 installLauncherLayout();
+if(!DEVELOPER_TOOLS)installPublicLauncher();
+else {document.body.dataset.buildAudience="developer";$(".phase").textContent="개발 빌드";}

@@ -1,6 +1,8 @@
+import {DEVELOPER_TOOLS} from './build-policy';
 import type {DosEngine} from './engine';
 import {SceneSession,SCENES,SCENE_LIMITS} from './scene-diagnostics';
 export function installScenePanel(toolbar:HTMLElement,getEngine:()=>DosEngine|undefined,download:(bytes:Uint8Array,name:string)=>void){
+ if(!DEVELOPER_TOOLS){toolbar.insertAdjacentHTML('beforeend','<div id="scene-panel" hidden></div>');return {start(_requested:string){},ready(){},end(){},report:()=>undefined};}
  toolbar.insertAdjacentHTML('beforeend',`<details id="scene-panel"><summary>장면 진단</summary><label>현재 장면<select id="scene-name">${SCENES.map(s=>`<option>${s}</option>`).join('')}</select></label><button id="scene-capture">현재 장면 기록</button><button id="scene-download">전체 진단 다운로드</button><p id="scene-status" role="status">장면 기록 대기</p></details>`);
  const q=(s:string)=>toolbar.querySelector<HTMLElement>(s)!;let session:SceneSession|undefined,timer:ReturnType<typeof setInterval>|undefined,pending=false;
  const status=(message:string)=>{q('#scene-status').textContent=message;};

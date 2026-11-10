@@ -1,0 +1,30 @@
+/* Presentation only: preserve stored play-control dimensions and placement. */
+[data-public-unavailable="true"]{display:none!important;}
+[data-build-audience="public"] button:not(#direction-pad button):not(.action-pad button),
+[data-build-audience="public"] summary,
+[data-build-audience="public"] select,
+#simple-import-dialog .file-drop {min-height:44px;}
+[data-build-audience="public"] #normal-launch {gap:16px;}
+[data-build-audience="public"] .launch-deck {align-content:center;}
+[data-build-audience="public"] #mode-manage {margin:0 0 8px;}
+[data-build-audience="public"] #settings-dialog label {margin-top:16px;}
+[data-build-audience="public"] .phase3-card pre {white-space:pre-wrap;overflow-wrap:anywhere;}
+.import-steps {display:flex;list-style:none;padding:0;gap:12px;margin:14px 0 20px;color:#9ea9bb;font-size:13px;}
+.import-steps li {flex:1;border-top:2px solid #384252;padding-top:8px;}
+.import-steps li[aria-current="step"] {color:#e5cca0;border-color:#c6a467;}
+.import-pickers {display:grid;grid-template-columns:1fr;gap:12px;}
+#simple-import-dialog .file-drop {position:relative;display:flex;justify-content:center;align-items:center;text-align:center;margin:0;padding:20px 12px;border:1px solid #a38b5b;border-radius:9px;background:#222c3c;color:#ecd5a7;cursor:pointer;}
+#simple-import-dialog .file-drop input {position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;}
+#simple-import-dialog .file-drop:focus-within {outline:2px solid #e9d4a6;outline-offset:3px;}
+#simple-import-dialog .file-drop:has(input:disabled) {opacity:.5;}
+#simple-import-dialog pre {max-height:140px;overflow:auto;white-space:pre-wrap;}
+#simple-import-dialog,#mode-manager {width:min(620px,calc(100vw - 24px));}
+#simple-import-dialog p {font-size:14px;line-height:1.6;}
+#mode-manager .mode-options {display:grid;gap:12px;}
+#mode-manager button {min-height:44px;}
+#profile-more {margin:16px 0;padding:12px;border:1px solid #495466;border-radius:8px;}
+@media(max-width:480px){.import-pickers{grid-template-columns:1fr;}.import-steps{gap:7px;font-size:12px;}}
+@media(orientation:landscape) and (max-height:430px){#simple-import-dialog{padding:16px 20px;}#simple-import-dialog h2{font-size:20px;}#simple-import-dialog .file-drop{padding:14px 10px;}.import-steps{margin:8px 0 12px;}}
+
+#simple-folder-choice {margin:12px 0;}
+#simple-folder-summary {overflow-wrap:anywhere;}

@@ -1,3 +1,4 @@
+import {requireDeveloperTools} from './build-policy';
 import {PHASE98K_WORKER} from './generated/phase9-8k-worker';
 import {PHASE98I_WORKER} from './generated/phase9-8i-worker';
 import {WorkletAudio} from './worklet-audio';
@@ -222,7 +223,8 @@ export class DosEngine implements Engine {
   setVolume(volume: number) {
     if (this.gain) this.gain.gain.value = volume;
   }
-  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:ExperimentalEngineId;discardWrites:true;cyclesPolicy?:number}|{id:'phase9-7';discardWrites:false;purpose:'normal-play'}) {
+  async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:ExperimentalEngineId;discardWrites:true;cyclesPolicy?:number}|{id:'phase9-7';discardWrites:false;purpose:'normal-play'}|{id:'phase9-7';discardWrites:true;purpose:'recovery-preview'}) {
+    if(experiment && !('purpose' in experiment && experiment.id==='phase9-7' && ((experiment.purpose==='normal-play' && experiment.discardWrites===false)||(experiment.purpose==='recovery-preview' && experiment.discardWrites===true))))requireDeveloperTools();
     this.stopping=false;this.speedFault=null;this.speedRecovery=false;this.speedSwitching=false;this.speedRecoveryCount=0;this.speedRecoveredAt=0;this.speedContinuedFault=false;this.audioSupply=new AudioSupply();
     this.startedAt = performance.now();
     this.audioStartup=new AudioStartup();

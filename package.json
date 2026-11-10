@@ -14,7 +14,8 @@
     "test:pages": "playwright test --config playwright.pages.config.ts",
     "package:manual": "node scripts/package-manual.mjs",
     "check:desktop": "node scripts/check-desktop.mjs",
-    "prepare:assets": "node scripts/prepare.mjs"
+    "prepare:assets": "node scripts/prepare.mjs",
+    "build:developer": "node scripts/build-variant.mjs"
   },
   "dependencies": {
     "emulators": "0.73.8",

@@ -2,11 +2,12 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8l-20261110082359907-5b72d685",
-    "commit": "0988a6e4551f",
+    "id": "9-8n-public-20261110114716983-efb9c3d9",
+    "commit": "528d433b3e00",
     "dirty": true,
-    "builtAt": "2026-11-10T08:23:59.907Z",
-    "revision": "phase9-8l-1"
+    "builtAt": "2026-11-10T11:47:16.983Z",
+    "revision": "phase9-8n-iso-1",
+    "audience": "public"
   },
   "files": [
     {
@@ -15,19 +16,19 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-hf0ScDF7.js",
-      "bytes": 6797,
-      "sha256": "22ca686e169eb27b2f883d290397291371380ca1ae895c48fe81a86e35abbde1"
+      "path": "assets/launcher-update-cYt6n5LW.js",
+      "bytes": 6823,
+      "sha256": "c070798eb873a0d4da8d5aaafb6216517e0f757ef8ee3629b3aadd6485a1fd0a"
     },
     {
-      "path": "assets/main-BxsrCSWG.js",
-      "bytes": 234616,
-      "sha256": "e7288f3680688af4ddf075fd205c5dd5956be80ea97befef40f7cbac34576d89"
+      "path": "assets/main-BVqh017X.css",
+      "bytes": 29315,
+      "sha256": "be36a4be34aabe9f601f316930013835ed401ad229a87e9a596e180e2d39bec1"
     },
     {
-      "path": "assets/main-Dk9k3Eu_.css",
-      "bytes": 27119,
-      "sha256": "79d4d12cf4d14c3c09888030f6f1c0a39b4addc9917f0abd29a96894365b49e3"
+      "path": "assets/main-DVFwSxM4.js",
+      "bytes": 246701,
+      "sha256": "e29b3f841b202d5f3629fd81fa89295dd551447a93f55d9bc5824c34f397391c"
     },
     {
       "path": "assets/runtime-worker-qN4wlFPP.js",
@@ -40,9 +41,9 @@
       "sha256": "820e85a26189de71a18efbeb330f577557ace91748e6fbfb5d597726ec8d32b3"
     },
     {
-      "path": "assets/update-DKao35ho.js",
+      "path": "assets/update-BuaLi0Hy.js",
       "bytes": 103,
-      "sha256": "0a29ec5599939622a9956914f77bc1b969f6f0ada84b270d06fbe1db2a6b1595"
+      "sha256": "5b42d079d877f991981b8301ee71d7568a260484ba10c76a996be77f0c487103"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
@@ -222,7 +223,7 @@
     {
       "path": "index.html",
       "bytes": 855,
-      "sha256": "f8c708c4efd9a241855b4ceb2231eb03bcf30cb050758ab9e30b4543296d52da"
+      "sha256": "37e0aa0fa195365d3042a93f0dd6073fa78502fbecb9e927b77b6cf3957749a8"
     },
     {
       "path": "licenses/NOTICE.html",
@@ -312,7 +313,7 @@
     {
       "path": "update.html",
       "bytes": 643,
-      "sha256": "bd282d1c1e5d41a5f2aa9dbe04306b2caa0d43f66c0f49af97724e29492cb230"
+      "sha256": "c0fc76aaa7bdb52846d427ae558b41e2cb062b2d9f0a18ddd360555f2807b937"
     },
     {
       "path": "vendor/emulators.js",
@@ -725,5 +726,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "d19c5d132ba840f1e72ced19b0eb6dda34fb5e33e4219aeffa220d6e52b670c6"
+  "swSha256": "b5e440cd2c9a76931a5ff803a881f343eaddc0344574739be978cbe3936a6b10"
 }

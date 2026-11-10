@@ -17,6 +17,8 @@ export interface Registration {
   conflicts: string[];
   music?: Profile["music"];
   committed: boolean;
+  /** New-import-only, bounded initialization verified from an included launcher config. */
+  registrationPrelude?: 'LOADER.COM';
 }
 export async function discardRegistration(draft?: Registration) {
   if (draft && !draft.committed && draft.archive.musicPackId) {
@@ -65,6 +67,7 @@ export async function commitRegistration(draft: Registration, executable: string
     requiredBaseVersion: draft.baseArchive ? identity(draft.baseArchive).versionId : undefined,
     launch: manual ? manualLaunchChoice(draft.analysis, executable, draft.files) : launchChoice(draft.analysis, executable, false),
   };
+  if(draft.registrationPrelude && draft.kind !== 'patch') profile.settings.prelude = draft.registrationPrelude;
   // OPFS handles/metadata must be accessible before linking the profile.
   await musicMounts(profile, draft.files);
   checkCancelled(signal);

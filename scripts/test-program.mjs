@@ -1,6 +1,6 @@
 // Original DOS fixture, CC0-1.0. Tiny 16-bit assembler, no third-party game data.
 import { strToU8 } from "fflate";
-export function testProgram() {
+export function testProgram(tracks = ["ED4-01.RAW", "ED4-02.RAW"], printHeader = true) {
   const b = [],
     labels = {},
     fix = [];
@@ -61,7 +61,7 @@ export function testProgram() {
   ptr("buffer");
   emit(0xb9, 8, 0, 0xb4, 0x3f, 0xcd, 0x21);
   // Print synthetic header marker, then read the final four bytes using seek.
-  emit(0x53, 0xbb, 1, 0, 0xb9, 8, 0, 0xb4, 0x40, 0xcd, 0x21, 0x5b);
+  if (printHeader) emit(0x53, 0xbb, 1, 0, 0xb9, 8, 0, 0xb4, 0x40, 0xcd, 0x21, 0x5b);
   emit(0xb8, 2, 0x42, 0xb9, 0xff, 0xff, 0xba, 0xfc, 0xff, 0xcd, 0x21);
   jump([0x0f, 0x82], "error");
   emit(0xba);
@@ -159,8 +159,8 @@ export function testProgram() {
   string("resourcePayload", "RESOURCE_CHANGED\r\n");
   string("resourceWritten", "RESOURCE WRITTEN\r\n$");
   string("resourceDeleted", "RESOURCE DELETED\r\n$");
-  string("trackOne", "ED4-01.RAW\0");
-  string("trackTwo", "ED4-02.RAW\0");
+  string("trackOne", tracks[0] + "\0");
+  string("trackTwo", tracks[1] + "\0");
   string("musicRead", " RAW READ AND SEEK OK\r\n$");
   label("buffer");
   emit(...new Array(64).fill(0));
