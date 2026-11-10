@@ -1,0 +1,89 @@
+/* Phase L presentation layer. Input geometry/preferences and framebuffer are unchanged. */
+body.fantasy-launcher { background:radial-gradient(ellipse at 15% 0%,#243044 0%,transparent 55%),#10151f; color:#eeeae1; --gold:#d5b879; --muted:#a5adbb; --line:#39404c; }
+.fantasy-launcher .topbar { height:72px; padding:12px max(24px,env(safe-area-inset-left)); border-color:#b49b6030; background:#11172290; }
+.fantasy-launcher .brand { font-size:16px; letter-spacing:2px; }
+.fantasy-launcher .brand-mark { width:40px; height:44px; font:30px Georgia,serif; background:transparent; border-color:#8e7951; }
+.fantasy-launcher .workspace { display:block; max-width:1180px; min-height:0; }
+.fantasy-launcher .main-panel { padding:32px 36px 16px; min-width:0; }
+.launcher-hero { display:grid; grid-template-columns:1fr minmax(300px,.85fr); gap:36px; padding:24px 0 28px; border-bottom:1px solid #b49b6040; }
+.hero-copy h1 { font-family:Georgia,'Malgun Gothic',serif; font-size:clamp(30px,4vw,52px); font-weight:500; letter-spacing:1px; margin:16px 0 12px; line-height:1.2; }
+.hero-copy h1 span { color:var(--gold); }
+.hero-copy > p { color:var(--muted); font-size:14px; margin:0 0 24px; }
+.fantasy-launcher .title-row { margin:0; gap:10px; align-items:center; }
+.fantasy-launcher .title-row h2 { font-size:18px; margin:6px 0 0; overflow-wrap:anywhere; }
+.fantasy-launcher .engine-chip { display:none; }
+#registration-action { margin-top:18px; max-width:320px; }
+body.has-profile #registration-action .primary { background:transparent; color:var(--gold); border-color:#766846; padding:9px 18px; }
+.launch-deck { display:grid; align-content:center; gap:14px; }
+#normal-launch { display:grid; gap:10px; }
+#normal-launch label { margin:0; font-size:12px; color:var(--muted); }
+#normal-launch select { width:100%; padding:10px; margin-top:6px; }
+#normal-launch #play { min-height:56px; font-size:19px; letter-spacing:2px; border:1px solid #ead6a4; background:linear-gradient(120deg,#dec593,#b99b61); color:#1e232b; }
+#normal-launch small,.trial-launch small { display:block; color:var(--muted); font-size:12px; line-height:1.7; }
+.trial-launch { border-top:1px solid var(--line); padding-top:12px; }
+#trial-k { display:flex; justify-content:space-between; width:100%; margin-bottom:6px; background:#202a3a; border-color:#59616c; }
+.trial-launch strong { font-weight:500; color:#d7bd8d; }
+.launcher-nav { display:flex; flex-wrap:wrap; gap:8px; padding:20px 0 12px; }
+.launcher-nav button { flex:1; min-width:100px; min-height:44px; background:#1b2433; border-color:#404957; }
+.fantasy-launcher .library { padding:12px 0; border:0; display:block; }
+.fantasy-launcher #profiles { display:flex; gap:8px; margin:8px 0 0; overflow:auto; }
+.fantasy-launcher .profile-item { flex:0 0 auto; width:260px; max-width:100%; margin:0; padding:12px; border-color:#394454; background:#171f2b; }
+.fantasy-launcher .profile-item.selected { border-color:#a28b59; background:#292c32; }
+.fantasy-launcher .library-bottom { margin:16px 0 0; padding:12px 0; }
+.fantasy-launcher .simple-summary { margin:8px 0; gap:12px; flex-wrap:wrap; }
+.fantasy-launcher #status { padding:12px 0; font-size:12px; line-height:1.7; }
+.fantasy-launcher #advanced-settings { background:#151d29; margin:12px 0; padding:16px; }
+.fantasy-launcher .card { background:#192230; border-color:#3c4655; }
+.fantasy-launcher button { min-height:40px; }
+.fantasy-launcher dialog { background:#19212e; border:1px solid #9d885d; color:#eeeae1; max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); overflow:auto; overscroll-behavior:contain; }
+.fantasy-launcher dialog::backdrop { background:#080c15c9; }
+.fantasy-launcher input,.fantasy-launcher select,.fantasy-launcher textarea { background:#111925; border-color:#495466; color:#eeeae1; max-width:100%; }
+.fantasy-launcher #advanced-content { overflow-wrap:anywhere; }
+body.fantasy-launcher:not(.running) #play-area .screen-frame,body.fantasy-launcher:not(.running) #play-area .player-toolbar { display:none; }
+/* Keep the controls dialog renderable even before a profile has been registered. */
+body.fantasy-launcher:not(.running) #play-area { display:block; border:0; background:none; }
+body.fantasy-launcher.launcher-tools-open:not(.running) #play-area .player-toolbar { display:flex; border:1px solid var(--line); border-radius:12px; background:#151d29; }
+body.fantasy-launcher:not(.running) .play-menu-heading,body.fantasy-launcher:not(.running) #play-menu-basic,body.fantasy-launcher:not(.running) #ingame-advanced { display:none; }
+body.fantasy-launcher:not(.running) #rotate-notice,body.fantasy-launcher:not(.running) #session-notice { display:none; }
+.fantasy-launcher .player-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:start; padding:16px; }
+.play-menu-heading { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--gold); }
+#play-menu-basic { display:flex; flex-wrap:wrap; gap:8px; width:100%; }
+#play-menu-basic > button { flex:1; min-width:120px; }
+#play-menu-basic #speed-limit { margin:0; padding:4px 0; }
+.fantasy-launcher #play-area .player-toolbar #session-notice { display:block; width:100%; height:auto; min-height:0; padding:0; font-size:12px; line-height:1.6; color:var(--muted); overflow-wrap:anywhere; }
+.fantasy-launcher #play-area .player-toolbar #session-notice.error { color:#ffb9a2; }
+#play-menu-advanced { border-top:1px solid #ffffff25; padding-top:12px; width:100%; display:flex; flex-wrap:wrap; gap:8px; }
+#play-menu-advanced h3 { width:100%; margin:0 0 4px; font-size:12px; color:var(--muted); }
+#play-menu-advanced button { font-size:12px; }
+.fantasy-launcher #play-area.immersive.menu-open .player-toolbar { left:auto; right:max(12px,env(safe-area-inset-right)); width:min(480px,calc(100% - 24px)); top:calc(env(safe-area-inset-top) + 58px); max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 70px); background:#151e2bf5; border:1px solid #796b4d; border-radius:12px; box-shadow:0 10px 40px #0008; }
+.fantasy-launcher #game-tools button { min-height:44px; border-radius:9px; background:#131c2bd9; border-color:#bda77c80; }
+.fantasy-launcher #speed-toggle[aria-pressed=true] { background:#a3803b; color:#fff; border-color:#f1d08d; }
+.fantasy-launcher #direction-pad button,.fantasy-launcher #play-area .action-pad button { border:1px solid #ecdfbf; background:#182334; box-shadow:inset 0 1px 0 #ffffff25,0 2px 8px #0004; }
+.fantasy-launcher #direction-pad button.pressed,.fantasy-launcher #play-area .action-pad button.pressed { background:#8b7248; border-color:#fff1ca; }
+body.running .launcher-hero,body.running .launcher-nav,body.running .library { display:none; }
+body:not(.has-profile) .launch-deck { opacity:.65; }
+@media(max-width:700px){
+ .fantasy-launcher .main-panel { padding:20px 18px 12px; }
+ .launcher-hero { grid-template-columns:1fr; gap:22px; padding-top:10px; }
+ .fantasy-launcher .topbar { padding:10px 18px; height:64px; }
+ .fantasy-launcher .phase { display:none; }
+ .fantasy-launcher .header-right { gap:6px; }
+ .fantasy-launcher .badge { font-size:10px; padding:6px 8px; }
+}
+@media(orientation:landscape) and (max-height:600px){
+ .fantasy-launcher .topbar { height:52px; padding:6px 24px; }
+ .fantasy-launcher .brand small { display:none; }
+ .fantasy-launcher .brand-mark { height:34px; width:32px; font-size:26px; }
+ .fantasy-launcher .main-panel { padding:12px 24px; }
+ .launcher-hero { gap:24px; padding:10px 0 16px; grid-template-columns:1fr 1fr; }
+ .hero-copy h1 { font-size:34px; margin:10px 0; }
+ .hero-copy > p { margin-bottom:16px; }
+ #registration-action { margin-top:12px; }
+ .launch-deck { gap:8px; }
+ #normal-launch { gap:6px; }
+ #normal-launch #play { min-height:48px; }
+ .launcher-nav { padding:12px 0 4px; }
+ body.running.fantasy-launcher .main-panel { padding:0; }
+}
+
+@media(max-width:480px){.launcher-nav{display:grid;grid-template-columns:1fr 1fr;}.launcher-nav button{min-width:0;}.fantasy-launcher .brand{font-size:14px;}}

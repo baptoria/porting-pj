@@ -47,7 +47,7 @@ export function installSimpleImport(options: {
   }
   function updateChoice() {
     const candidate = draft?.analysis.candidates.find(c => c.path === find<HTMLSelectElement>('simple-executable').value);
-    find<HTMLButtonElement>('simple-confirm').disabled = processing || !candidate || candidate.blocked || (!!draft?.conflicts.length && !find<HTMLInputElement>('simple-conflicts').checked);
+    find<HTMLButtonElement>('simple-confirm').disabled = processing || !candidate?.entrySafe || (!!draft?.conflicts.length && !find<HTMLInputElement>('simple-conflicts').checked);
   }
   async function discard() {
     controller?.abort();
@@ -119,9 +119,9 @@ export function installSimpleImport(options: {
       if (details) find<HTMLProgressElement>('simple-progress').value = details.totalBytes ? details.completedBytes/details.totalBytes : 0;
     }, signal);
     signal.throwIfAborted();
-    find('simple-analysis').textContent = draft.analysis.reason;
+    find('simple-analysis').textContent = draft.analysis.reason + ' 참조 누락·형식 분석은 참고 정보입니다. 직접 선택하면 원본 파일 그대로 DOS 실행을 시도합니다. 실제 필수 파일이 없으면 게임 내부에서 실패할 수 있습니다.';
     find('simple-issues').textContent = draft.analysis.candidates.map(c=>`${c.path}${c.missing.length ? '\n누락: '+c.missing.join(', ') : ''}${c.warnings.length ? '\n확인: '+c.warnings.join(' / ') : ''}`).join('\n\n') + (draft.conflicts.length ? '\n\n원본과 충돌: '+draft.conflicts.join(', ') : '');
-    find('simple-executable').innerHTML = '<option value="">실행 파일을 선택하세요</option>' + draft.analysis.candidates.map(c=>`<option value="${escape(c.path)}" ${c.blocked?'disabled':''}>${escape(draft!.archive.originalPaths?.[c.path] ?? c.path)}${c.blocked?' · 누락/미지원':''}</option>`).join('');
+    find('simple-executable').innerHTML = '<option value="">실행 파일을 선택하세요</option>' + draft.analysis.candidates.map(c=>`<option value="${escape(c.path)}" ${!c.entrySafe?'disabled':''}>${escape(draft!.archive.originalPaths?.[c.path] ?? c.path)}${!c.entrySafe?' · 실행 경로 확인':c.blocked?' · 확인 후 실행 가능':''}</option>`).join('');
     find<HTMLSelectElement>('simple-executable').value = draft.analysis.automatic ?? '';
     find('simple-conflict-row').hidden = !draft.conflicts.length; find<HTMLInputElement>('simple-conflicts').checked = false;
     if (draft.analysis.automatic && !draft.conflicts.length) await finish(false);

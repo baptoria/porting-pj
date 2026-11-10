@@ -1,5 +1,7 @@
 import {EnvironmentObservation,observeEnvironmentBatch,executableIdentities,type EnvironmentMode} from './environment-comparison';
 import "./style.css";
+import "./launcher.css";
+import {installLauncherLayout} from "./launcher-layout";
 import {
   compose,
   executables,
@@ -787,9 +789,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     const mountedMusic = traceOptions?.rawMounted===false?[]:await musicMounts(p, layerFiles(p, input), save);
     const inspection = inspectGame(layerFiles(p, input));
     if (inspection.windowsExecutables.includes(p.executable))
-      throw Error(
-        "선택한 실행 파일은 PE/NE 형식입니다. Windows/OS2 프로그램은 지원하지 않습니다. DOS EXE/BAT를 선택하세요.",
-      );
+      log("PE/NE 서명 후보가 있습니다. DOS stub 실행 가능성을 미리 단정하지 않고 실행합니다. Windows/OS2 API 자체는 이 엔진에서 지원하지 않습니다.");
     let temporary:Files={};
     if(traceOptions){
       const effective={...layerFiles(p,input)};
@@ -1660,7 +1660,7 @@ function renderSpeed(){
  const s=engine?.speedState(),button=$<HTMLButtonElement>('#speed-toggle');if(!button)return;
  const enabled=!!s?.supported&&s.verified&&!s.pending&&!s.fault&&!paused;
  button.dataset.capable=String(!!s?.supported);button.disabled=!enabled;button.setAttribute('aria-pressed',String(s?.verified&&s.rate===2));
- const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속 · 저장 안 함`)):'2×는 Phase 9-8H/I 일회성 진단에서만 사용할 수 있습니다. 현재 일반 속도 1×입니다.';
+ const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속 · 저장 안 함`)):'현재 일반 속도 1×입니다. 2×는 별도의 저장하지 않는 시험 실행에서 사용할 수 있습니다.';
  button.title=text;button.setAttribute('aria-label','2× 전환 · '+text);$('#speed-limit').textContent=text;if(s?.fault)status(s.fault,true);
 }
 on('#speed-toggle',async()=>{if(!engine)return;await engine.setSpeed(engine.speedState().rate===2?1:2);renderSpeed();});
@@ -1668,3 +1668,5 @@ $('#advanced-content').insertAdjacentHTML('afterbegin','<section id="launcher-up
 const launcherUpdate=installLauncherUpdate($('#launcher-update'),()=>!!engine||!!running||busy);
 const scenePanel=installScenePanel($('.player-toolbar'),()=>engine,download);
 for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelectElement>('#'+id);field.disabled=true;field.title='기존 설정은 보존됩니다. ED4 오버레이는 Enter/ESC 고정입니다.';}
+
+installLauncherLayout();

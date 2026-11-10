@@ -89,11 +89,12 @@ test('ambiguous initialization is selected once and persists across a real brows
  }finally{await context.close();}
 });
 
-test('missing driver and invalid ZIP give actions, and cancelling a pending choice removes only staged music',async({page})=>{
+test('missing driver stays a warning for explicit launch; invalid ZIP and cancellation preserve staged-data cleanup',async({page})=>{
  await ready(page);await upload(page,'keep.zip',await fixture());await registered(page,'keep');await start(page);await save(page);
  const before=await snapshot(page),dirs=await musicDirectories(page);
  await upload(page,'missing.zip',await fixture(true,'SOUNDRV.COM\r\nED4TEST.COM'));
- await expect(page.locator('#simple-issues')).toContainText('누락: SOUNDRV.COM');await expect(page.locator('#simple-executable option[value="GAME.BAT"]')).toHaveJSProperty('disabled',true);
+ await expect(page.locator('#simple-issues')).toContainText('누락: SOUNDRV.COM');await expect(page.locator('#simple-executable option[value="GAME.BAT"]')).toHaveJSProperty('disabled',false);
+ await expect(page.locator('#simple-confirm')).toBeDisabled();await page.locator('#simple-executable').selectOption('GAME.BAT');await expect(page.locator('#simple-confirm')).toBeEnabled();
  await page.locator('#simple-cancel').click();await expect(page.locator('#simple-import-dialog')).not.toBeVisible();
  expect(await musicDirectories(page)).toEqual(dirs);expect(await snapshot(page)).toEqual(before);
  await page.locator('#simple-import').click();await page.locator('#simple-zip').setInputFiles({name:'bad.zip',mimeType:'application/zip',buffer:Buffer.from('not a ZIP')});

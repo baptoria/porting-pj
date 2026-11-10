@@ -98,7 +98,8 @@ test("A -> consume -> warn -> explicit recovery preview/apply -> B -> consume; o
   s = await state(page);
   expect(s.saves[0].tombstones).toContain("SAVE/ED4_S99_.DAT");
   expect(s.recovery).toHaveLength(1);
-  await page.locator("#recovery-run").click();
+  await page.locator("#launcher-advanced").click();
+  await page.locator("#recovery-open").click();
   await expect(page.locator("#recovery-details")).toContainText("삭제 표시");
   const exportEvent = page.waitForEvent("download");
   await page.locator("#recovery-export").click();
@@ -121,7 +122,8 @@ test("A -> consume -> warn -> explicit recovery preview/apply -> B -> consume; o
   await stop(page);
   expect((await state(page)).saves).toEqual(s.saves);
   expect((await state(page)).recovery).toEqual(s.recovery);
-  await page.locator("#recovery-run").click();
+  await page.locator("#launcher-advanced").click();
+  await page.locator("#recovery-open").click();
   await page.locator("#recovery-apply").click();
   await expect(page.locator("#recovery-dialog")).not.toBeVisible();
   expect(
@@ -256,7 +258,8 @@ test("nested game directory retains original CFG alongside the temporary recover
   expect(data.recovery[0].save.files["ED4/SAVE/ED4_S99_.DAT"]).toEqual(
     Array.from(text("TEMP_A")),
   );
-  await page.locator("#recovery-run").click();
+  await page.locator("#launcher-advanced").click();
+  await page.locator("#recovery-open").click();
   await expect(page.locator("#recovery-details")).toContainText("ED4/SAVE/ED4_98.CFG");
   await page.locator("#recovery-close").click();
   await start(page);

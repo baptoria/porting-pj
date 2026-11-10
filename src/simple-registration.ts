@@ -1,5 +1,5 @@
 import { compose, validateExecutable } from "./archive";
-import { analyzeLaunch, launchChoice, type LaunchAnalysis } from "./launch-analysis";
+import { analyzeLaunch, launchChoice, manualLaunchChoice, type LaunchAnalysis } from "./launch-analysis";
 import { identity } from "./integrity";
 import { DEFAULT_SETTINGS, id, type Archive, type Files, type Profile, type ProfileKind } from "./model";
 import { musicMounts, resolvedTracks } from "./music";
@@ -63,7 +63,7 @@ export async function commitRegistration(draft: Registration, executable: string
     executable, settings: { ...(draft.kind === "patch" ? draft.base?.settings : undefined) ?? DEFAULT_SETTINGS },
     createdAt: Date.now(), music: draft.music,
     requiredBaseVersion: draft.baseArchive ? identity(draft.baseArchive).versionId : undefined,
-    launch: launchChoice(draft.analysis, executable, manual),
+    launch: manual ? manualLaunchChoice(draft.analysis, executable, draft.files) : launchChoice(draft.analysis, executable, false),
   };
   // OPFS handles/metadata must be accessible before linking the profile.
   await musicMounts(profile, draft.files);

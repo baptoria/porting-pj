@@ -7,7 +7,10 @@ export interface LaunchCandidate {
   missing: string[];
   warnings: string[];
   initialization: string[];
+  /** Blocks conservative automatic recommendation, not explicit safe DOS entry. */
   blocked: boolean;
+  /** Basic DOS entry safety, separate from conservative automatic recommendation. */
+  entrySafe?: boolean;
 }
 export interface LaunchAnalysis {
   candidates: LaunchCandidate[];
@@ -16,7 +19,7 @@ export interface LaunchAnalysis {
 }
 
 /** Conservative static BAT analysis, never a command generator/interpreter.
- * Unknown syntax requires one explicit choice; known missing files block that BAT.
+ * Unknown syntax/references prevent automatic selection; explicit entry is checked separately.
  * Actual DOS execution always uses the original selected BAT bytes unchanged.
  */
 export function analyzeLaunch(files: Files, musicPaths: string[] = []): LaunchAnalysis {
@@ -38,8 +41,8 @@ export function analyzeLaunch(files: Files, musicPaths: string[] = []): LaunchAn
   };
   const candidates = executables(files).map(path => {
     const item: LaunchCandidate = { path, missing: [], warnings: [], initialization: [], blocked: false };
-    try { validateExecutable(path, files); } catch (e) { item.warnings.push(String(e)); item.blocked = true; }
-    if (windows.has(path)) { item.warnings.push("DOS용이 아닌 PE/NE 실행 파일"); item.blocked = true; }
+    try { validateExecutable(path, files); item.entrySafe = true; } catch (e) { item.warnings.push(String(e)); item.blocked = true; item.entrySafe = false; }
+    if (windows.has(path)) { item.warnings.push("PE/NE 서명 후보: 실제 DOS 실행 가능 여부는 실행 결과로 확인"); item.blocked = true; }
     const walk = (batch: string, initialCwd: string, stack: string[]): string => {
       let cwd = initialCwd;
       if (stack.includes(batch) || stack.length > 8) { item.warnings.push("BAT 호출 순환/깊이 제한: " + batch); return cwd; }
@@ -79,7 +82,7 @@ export function analyzeLaunch(files: Files, musicPaths: string[] = []): LaunchAn
           if (matches.length !== 1) { item.warnings.push("명령 확장자 중복: " + name); continue; }
           const found = matches[0];
           validateExecutable(found, files);
-          if (windows.has(found)) { item.blocked = true; item.warnings.push("DOS용이 아닌 초기화 파일: " + found); }
+          if (windows.has(found)) { item.blocked = true; item.warnings.push("초기화 파일의 PE/NE 서명 후보: " + found); }
           for (const arg of tokens.filter(t => /\.(?:EXE|COM|BAT|SYS|RAW)$/i.test(t))) {
             const ref = resolvePath(cwd, arg);
             if (!present.has(ref)) item.missing.push(ref);
@@ -105,6 +108,16 @@ export function analyzeLaunch(files: Files, musicPaths: string[] = []): LaunchAn
   const preferred = games.length === 1 ? games[0] : candidates.length === 1 ? candidates[0] : undefined;
   const automatic = preferred && !preferred.blocked && !preferred.warnings.length ? preferred.path : undefined;
   return { candidates, automatic, reason: automatic ? "실제 파일 참조와 실행 흐름을 확인했습니다. 게임 호환성은 실기 확인이 필요합니다." : candidates.length ? "실행 후보가 여러 개이거나 초기화 명령을 확인해야 합니다. 처음 한 번만 선택하세요." : "실행 BAT/EXE/COM이 없습니다. 게임 폴더 전체를 선택하세요." };
+}
+
+/** Explicit selection may attempt original bytes despite static-analysis uncertainty.
+ * This does not authorize unsafe shell paths or bypass strict diagnostic BAT generation.
+ */
+export function manualLaunchChoice(analysis: LaunchAnalysis, executable: string, files: Files): NonNullable<Profile['launch']> {
+  validateExecutable(executable, files);
+  const candidate = analysis.candidates.find(c => c.path === executable);
+  if (!candidate || candidate.entrySafe !== true) throw Error('실행 경로 구성 실패: ' + executable);
+  return {source:'user-choice',presetId:'ed4-generic-experimental-v1',experimental:true,initialization:candidate.initialization};
 }
 
 export function launchChoice(analysis: LaunchAnalysis, executable: string, manual: boolean): NonNullable<Profile["launch"]> {
