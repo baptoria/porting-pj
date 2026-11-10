@@ -84,7 +84,9 @@ ISO 자체는 저장하지 않으며 음악도 한 벌만 저장한다. 폴더�
 
 로그/증거: artifacts/phase9-8n의 unit-actual.log, browser-public-final.log, actual-process-restart.log, public.log, update.log, pages-final.log, dev-*.log, actual-parser.json, actual-browser-import.json, actual-hash-verification.json, preservation.json, synthetic-audio.json. 실제 등록 후 화면은 browser/import-actual-local-distri-fd743-e-hashes-no-game-execution-/actual-registered.png. artifacts는 로컬 검증 전용이며 공개 배포하지 않는다.
 
-로컬 구현 커밋 SHA는 커밋 후 검증 기록에 추가한다.
+로컬 M+N 구현 커밋 SHA: `ae56e3f03bdaf4ad3b1356cf344f6d2366563591`.
+메시지: `feat(ed4-mobile): finalize public launcher and Dooky ISO music import`.
+이 SHA를 보고서와 GPL 소스 묶음에 기록하는 문서 후속 커밋을 별도로 남긴다. 이는 실행기 코드/배포 빌드를 다시 변경하는 커밋이 아니다. Push 및 원격 배포는 수행하지 않았다.
 
 ## Galaxy 최소 확인
 
