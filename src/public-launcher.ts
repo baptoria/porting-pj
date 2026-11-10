@@ -11,7 +11,7 @@ export function installPublicLauncher(){
  '#trace-status','#raw-preview','#raw-stop'])hide(q(s));
  q('#speed-toggle').hidden=true;q('#speed-limit').hidden=true;
  for(const s of ['#cycles','#memory','#sound','#prelude','#preset','#required-version'])hide(q(s).closest('label'));
- // Keep existing saved CPU/prelude values, and existing ordinary engine preference.
+ // Keep CPU/prelude values. Versioned ordinary preference is applied in main.
  for(const el of q('#settings-form').querySelectorAll<HTMLElement>(':scope > .hint'))hide(el);
  q('#settings-dialog h2').textContent='게임 설정';
  q('#launcher-advanced').textContent='관리 · 백업';
@@ -24,9 +24,8 @@ export function installPublicLauncher(){
  q('.library').prepend(q('#mode-manage'));
  q('#mode-manage').classList.add('quiet');
  const original=q<HTMLSelectElement>('#play-engine');
- original.options[0].text='기본 DOS 실행';original.options[1].text='영웅전설4 호환 실행';
  const label=original.closest('label')!,note=q('#normal-launch small');
- // Move, never reset the user's selected ordinary engine.
+ // Move without changing the versioned selection.
  q('#edit-exe').closest('label')!.after(label);
  const more=document.createElement('details');more.id='profile-more';more.innerHTML='<summary>모드 · 저장 상세 설정</summary>';
  label.after(more);

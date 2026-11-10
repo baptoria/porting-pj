@@ -2,11 +2,11 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8o-followup-public-20261110151525188-8163c659",
-    "commit": "68e698ad20e7",
+    "id": "9-8o-default-public-20261110161853717-024ccec8",
+    "commit": "e90e93a15b9c",
     "dirty": true,
-    "builtAt": "2026-11-10T15:15:25.188Z",
-    "revision": "phase9-8o-normal-speed-2",
+    "builtAt": "2026-11-10T16:18:53.717Z",
+    "revision": "phase9-8o-default-speed-3",
     "audience": "public"
   },
   "files": [
@@ -16,14 +16,14 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-Ct5C4jq4.js",
+      "path": "assets/launcher-update-CXOUqz9D.js",
       "bytes": 6841,
-      "sha256": "81477129fa2e11837793f4747ee749e5719b75ff40b73caec895902f8ff4473a"
+      "sha256": "a24e976f9f0dad1613c31a20fa5b34420a18072e1460e5014914827eb3351b8a"
     },
     {
-      "path": "assets/main-BIYTOkbF.js",
-      "bytes": 249404,
-      "sha256": "e3dc88fca56f8905c0939d02ba87023f620c78977b00c6a37cad0ed3a87723df"
+      "path": "assets/main-BOyxZ5Uz.js",
+      "bytes": 249789,
+      "sha256": "887daa9b12b441f94cc3b550f786ab41038a41869ace2f4befed9318ec139da4"
     },
     {
       "path": "assets/main-kii59z9s.css",
@@ -41,9 +41,9 @@
       "sha256": "820e85a26189de71a18efbeb330f577557ace91748e6fbfb5d597726ec8d32b3"
     },
     {
-      "path": "assets/update-DF9WR-GC.js",
+      "path": "assets/update-_6pA974t.js",
       "bytes": 103,
-      "sha256": "c717f1927a97b068caf63ceaf914645eb9a4e39c38674297aa70d7bb1bec5341"
+      "sha256": "335baf200e298ad559f57fa4de6fd93b41fff868236b5ef13c7656d9060e2cea"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
@@ -223,7 +223,7 @@
     {
       "path": "index.html",
       "bytes": 855,
-      "sha256": "9b71fd33f25ceadcf34ab01e3d9b8acf7743301e1824660707ceed27c1f60fcf"
+      "sha256": "b68be4aed5b6fcc8c3ab6e0e711c937e349e11fd8e57a9d5323ebc13962d93c4"
     },
     {
       "path": "licenses/NOTICE.html",
@@ -313,7 +313,7 @@
     {
       "path": "update.html",
       "bytes": 643,
-      "sha256": "3e2aee165244c16a301d691bbd83029b22d160b60f5f18f669d68eeec4871b16"
+      "sha256": "0e0f30875b9af72d3867e9844126d1e4faa23ce4a3b9669655d970082eb7b281"
     },
     {
       "path": "vendor/emulators.js",
@@ -726,5 +726,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "9a836adfce9d70d5794c9941b12ad860be965e4c9935c083ca2d40966e206e3f"
+  "swSha256": "396791ed4a9ed2ae3eb8884214e8600b7e161e6d2d7005240783cbe584da6402"
 }

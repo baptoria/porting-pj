@@ -1,5 +1,6 @@
 import {DEVELOPER_TOOLS, DEVELOPER_ACTIONS, requireDeveloperTools} from './build-policy';
 import {installPublicLauncher} from './public-launcher';
+import {preferredPlayEngine,rememberPlayEngine} from './play-preference';
 import {EnvironmentObservation,observeEnvironmentBatch,executableIdentities,type EnvironmentMode} from './environment-comparison';
 import "./style.css";
 import "./launcher.css";
@@ -728,11 +729,12 @@ async function checkpoint() {
     checkpointPromise = undefined;
   }
 }
-async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i'|'phase9-8k';cyclesPolicy?:number}, recoveryPreview?: Save) {
+async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMounted?:boolean;mode?:ComparisonMode;baselineEntry?:string;changedFactor?:string;environment?:EnvironmentMode;experimentalEngine?:'phase9-2'|'phase9-3'|'phase9-4'|'phase9-5b'|'phase9-6'|'phase9-7'|'phase9-8c'|'phase9-8d'|'phase9-8f'|'phase9-8h'|'phase9-8i'|'phase9-8k';cyclesPolicy?:number}, recoveryPreview?: Save, fallback?:'phase9-7') {
   if(traceOptions)requireDeveloperTools();
   idle();
   if(launcherUpdate.locked||launcherUpdate.incompatible)throw Error('실행기 업데이트 중이거나 코드/서비스 워커 버전이 다릅니다. 업데이트 상태를 확인하세요. 게임 데이터는 유지됩니다.');
-  const choice=$<HTMLSelectElement>('#play-engine').value;
+  $('#play-fallback').hidden=true;
+  const choice=fallback??$<HTMLSelectElement>('#play-engine').value;
   const playEngine=!traceOptions&&(choice==='phase9-7'||choice==='phase9-8k')?choice:'stable';
   scenePanel.start(traceOptions?.experimentalEngine??playEngine);
   window.dispatchEvent(new Event("ed4-release-input"));
@@ -831,7 +833,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     renderSpeed();
     $("#canvas").focus();
     $('#stop').textContent=diagnosticRun?'진단 종료 (저장 안 함)':'저장 후 종료';
-    status(diagnosticRun?(DEVELOPER_TOOLS?'임시/복구 시험 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'복구 미리보기 중입니다. 이 실행에서 바뀐 내용은 저장하지 않습니다.'):'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
+    status(diagnosticRun?(DEVELOPER_TOOLS?'임시/복구 시험 실행 중 · 변경분은 저장하지 않습니다. 검은 화면에서 진단 JSON과 화면 PNG를 내려받으세요.':'복구 미리보기 중입니다. 이 실행에서 바뀐 내용은 저장하지 않습니다.'):(fallback?'이번 실행은 호환 실행 · 1×입니다. ':'')+'DOS 실행 중 · 게임 내부 저장 후 «저장 후 종료»를 눌러 주세요.');
   } catch (e) {
     scenePanel.end();
     lastEngineMetrics=engine?.diagnostics(); // Retain early WASM failures after cleanup.
@@ -839,6 +841,9 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     engine = undefined;
     diagnosticRun=false;
     $("#run-state").textContent = "시작 실패";
+    // Never restart a failed or running guest silently. Offer a fresh, verified
+    // ordinary session only after K startup cleanup, retaining the same saves.
+    $('#play-fallback').hidden=!!traceOptions||!!recoveryPreview||playEngine!=='phase9-8k'||launchStage!=='worker-wasm-start';
     throw Error("실행 실패 단계: "+launchStage+"\n"+storageError(e) + (DEVELOPER_TOOLS?"\n설정에서 실행 파일·음악 연결을 확인하세요. 해결되지 않으면 실행 로그·진단 JSON을 내려받으세요. 기존 세이브는 유지됩니다.":"\n게임 설정의 실행 파일과 음악 연결을 확인하세요. 계속 실패하면 별도 개발 빌드로 원인을 확인할 수 있습니다. 기존 저장은 유지됩니다."));
   }
 }
@@ -1552,9 +1557,11 @@ async function init() {
 // Phase 5: keep the existing advanced tools, make the default path simple.
 $("#profiles").insertAdjacentHTML("beforebegin", '<button id="simple-import" class="primary wide">게임 등록</button>');
 $("#play").textContent = "▶ 게임 실행";
-$('#play').insertAdjacentHTML('beforebegin','<label>일반 실행 엔진<select id="play-engine"><option value="stable">Stable 원래 엔진</option><option value="phase9-7">Phase 9-7 ED4 호환 · 1× · 일반 저장</option><option value="phase9-8k">전체 배속 지원 · 1×/2× · 일반 저장</option></select></label><small>구버전 ED4는 VGA 호환 수정이 있는 9-7을 직접 선택하세요. Stable은 변경하지 않습니다. 실기 저장 안정성은 아직 확인 중입니다.</small>');
-try{const saved=localStorage.getItem('ed4-play-engine-v1');if(saved==='phase9-7'||saved==='phase9-8k')$<HTMLSelectElement>('#play-engine').value=saved;}catch{}
-$('#play-engine').addEventListener('change',()=>{try{localStorage.setItem('ed4-play-engine-v1',$<HTMLSelectElement>('#play-engine').value);}catch{}});
+$('#play').insertAdjacentHTML('beforebegin','<label>실행 방식<select id="play-engine"><option value="stable">기본 DOS 실행 · 1×</option><option value="phase9-7">호환 실행 · 1×</option><option value="phase9-8k" selected>기본 실행 · 1×/2×</option></select></label><small>기본 실행은 1×로 시작하며 게임 안에서 2×로 전환할 수 있습니다. 문제가 있으면 게임 설정에서 호환 실행을 선택하세요.</small>');
+$('#play').insertAdjacentHTML('afterend','<button id="play-fallback" hidden>호환 실행으로 다시 시도 · 1×</button>');
+on('#play-fallback',()=>startGame(undefined,undefined,'phase9-7'));
+try{$<HTMLSelectElement>('#play-engine').value=preferredPlayEngine(localStorage);}catch{}
+$('#play-engine').addEventListener('change',()=>{try{rememberPlayEngine(localStorage,$<HTMLSelectElement>('#play-engine').value);}catch{}});
 
 $("#empty-screen p").textContent = "게임 폴더 또는 ZIP을 한 번 등록하면 다음부터 바로 실행할 수 있습니다.";
 $("#status").textContent = "게임 등록을 눌러 폴더 또는 ZIP을 선택하세요. RAW 음악도 함께 선택할 수 있습니다.";
