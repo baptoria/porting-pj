@@ -1,0 +1,8 @@
+// Generated immutable BGM diagnostic Worker.
+export const PHASE98F_WORKER={
+  "revision": "phase9-8f-common-1",
+  "common": "dos-worker-common-phase9-8f-55fa6d525a72d953.js",
+  "sha256": "55fa6d525a72d9532e149097c2c4b4e7c94bf930cf8353d0495c5b69cbea9c4f",
+  "entry": "dos-worker-phase9-8f-dbcd3ef6cacd512f.js",
+  "entrySha256": "dbcd3ef6cacd512fb5e1bcff7840f68f1981b6aeffc0deb066b402037bf7c9f3"
+} as const;

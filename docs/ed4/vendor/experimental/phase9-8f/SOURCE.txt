@@ -1,0 +1,2 @@
+GPL-2.0-or-later emulators 0.73.8. Full corresponding source: ../../../sources/emulators-0.73.8-phase9-8f-source.zip
+See BUILD-PHASE9-8F.md. Event-only observer plus opt-in local test timer (default 1x); no audio suppression.

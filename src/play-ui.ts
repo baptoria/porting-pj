@@ -13,7 +13,7 @@ export function controlLayout(width:number,height:number,s:PlayUi){
  return {joy,button,gap,joyX:Math.max(0,w/2-joy)*s.joystickX/100,joyY:Math.max(0,h-joy)*s.joystickY/100,
   actionX:w/2+Math.max(0,w/2-group)*s.buttonX/100,actionY:Math.max(0,h-button)*s.buttonY/100};
 }
-export const SPEED_CAPABILITY={supported:false,rate:1,reason:'게임 시간과 BGM 시간을 안전하게 분리하지 못해 2×를 활성화하지 않았습니다. 현재 일반 속도 1×입니다.'} as const;
+export const SPEED_CAPABILITY={supported:false,rate:1,reason:'2×는 Phase 9-8H 전체 오디오 가속 일회성 진단에서만 지원합니다. 현재 일반 속도 1×입니다.'} as const;
 export function installPlayUi(area:HTMLElement){
  const release=()=>window.dispatchEvent(new Event('ed4-release-input'));
  let settings:PlayUi={...DEFAULT_PLAY_UI};try{settings=normalizePlayUi(JSON.parse(localStorage.getItem(PLAY_UI_KEY)??'null'));}catch{}
@@ -60,5 +60,5 @@ export function installPlayUi(area:HTMLElement){
   if(!running){area.classList.remove('immersive','menu-open');q('#player-menu').setAttribute('aria-expanded','false');if(dialog.open)dialog.close();}
  }).observe(document.body,{attributes:true,attributeFilter:['class']});
  new ResizeObserver(()=>{release();layout();}).observe(controls);fields();layout();
- return ()=>({revision:'phase9-8d-controls-1',settings:{...settings},immersive:area.classList.contains('immersive'),speed:{...SPEED_CAPABILITY}});
+ return ()=>({revision:'phase9-8d-controls-1',settings:{...settings},immersive:area.classList.contains('immersive'),speed:{...SPEED_CAPABILITY,supported:q<HTMLButtonElement>('#speed-toggle').dataset.capable==='true',rate:q('#speed-toggle').getAttribute('aria-pressed')==='true'?2:1,reason:q('#speed-limit').textContent}});
 }

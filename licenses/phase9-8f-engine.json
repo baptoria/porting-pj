@@ -1,0 +1,58 @@
+{
+  "id": "phase9-8f",
+  "emulators": "0.73.8",
+  "emscripten": "3.1.21",
+  "files": {
+    "wdosbox.js": {
+      "sha256": "276c49069be89d02c2f5646e75ee170bc3b77d3851a800b410bd608914e2b951",
+      "bytes": 126984
+    },
+    "wdosbox.wasm": {
+      "sha256": "2fab041279ae5f52dd1cf5a0bdef060c3faab0fef797475b0e0f69d87c879d85",
+      "bytes": 1466459
+    },
+    "wdosbox.js.symbols": {
+      "sha256": "3d245de6b848843ef2d5c81f4f1d6b680f64b4bfe13d223762704db7a0b31141",
+      "bytes": 239899
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    "DOSBOX-COPYING": {
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374",
+      "bytes": 17995
+    },
+    "SOURCE.txt": {
+      "sha256": "faaa49dd1ea527efad2d51fc5dd5462f292a44c63f42bdd756114bc012cfa2ee",
+      "bytes": 226
+    }
+  },
+  "changes": {
+    "baseSourceSha256": "5c24b85b62a74e1c0867907f9138a86a00b575edc4bb9b66405ed24f4b0f2b42",
+    "changes": [
+      {
+        "path": "native/dosbox/include/ed4_bgm.h",
+        "before": "7c9e0f0d10e76fdf7030c52563609d5f385af02f9d8d8f555970f65b3fd37802",
+        "after": "5989b01267b4015df3adcbb7fd8435ad25ad584c9e9be1a4a6b6fb0e285e5be2"
+      },
+      {
+        "path": "native/dosbox/src/cpu/cpu.cpp",
+        "before": "4f698901e139bb0b45e892aed1f59dc84f99191ec1a5c1bd5611687da34d2098",
+        "after": "d66fc7605b7fc180e63a333b6b0b8eb3dff906eaa893f0ee3a8e7609f18c2c61"
+      },
+      {
+        "path": "native/dosbox/src/cpu/ed4_bgm.inc",
+        "before": "0cc83df575965a2b63cdc409976f63b3031ad0a1cb7c13d8af5d3d424ef7a4d3",
+        "after": "3379d359f022a780917d7d5670a5bf0a617f471f7cafb5d0b3d00996f9e7bc63"
+      },
+      {
+        "path": "native/dosbox/src/dosbox.cpp",
+        "before": "40fb6401dd87e4ab1202303f1c95756eac1255b418b29dc72c151b88c7c4a7e8",
+        "after": "9c5e34886b83f19dc7426fb8114ddca32d9d9f2336a37568bc779141bfdd503a"
+      }
+    ],
+    "timerSource": "exact reviewed 9-8B dosbox.cpp"
+  },
+  "sourceZipSha256": "d717c93d4d929e7f5267f09c868f9101a8a8d7aa2199d1709f97c21daf4f1ab4"
+}

@@ -1,3 +1,7 @@
+import {SpeedControl,type Speed} from './speed-control';
+import {SpeedAudio} from './speed-audio';
+import {PHASE98H_WORKER} from './generated/phase9-8h-worker';
+import { PHASE98F_WORKER } from './generated/phase9-8f-worker';
 import type { CommandInterface, Emulators } from "emulators";
 import type {
   MessageHandler,
@@ -57,6 +61,50 @@ function loadEmulator() {
   }));
 }
 export class DosEngine implements Engine {
+  private speed?:SpeedControl;
+  private speedAudio?:SpeedAudio;
+  private speedTimer?:ReturnType<typeof setInterval>;
+  private speedFault:string|null=null;
+  private speedRecovery=false;
+  private speedRecoveryCount=0;
+  private lastNativeUnderflows=0;
+  private stopping=false;
+  private audioResuming=false;
+  private audioResumeEpoch=0;
+  speedState(){return {supported:this.artifact.id==='phase9-8h'&&this.engineReady&&!this.stopping,rate:this.speed?.rate??1,verified:this.speed?.verified??false,pending:!!this.speed?.busy||this.speedRecovery||this.audioResuming,fault:this.speedFault,recoveries:this.speedRecoveryCount};}
+  async setSpeed(rate:Speed){
+    if(!this.speedState().supported||!this.speed||this.speedFault||this.paused)throw Error('Phase 9-8H 실행 중에만 속도를 바꿀 수 있습니다.');
+    if(this.speed.busy||this.speedRecovery)throw Error('속도 응답 대기 중입니다.');
+    try{const ack=await this.speed.request('set',rate);if(ack.rate!==rate)throw Error('요청/확인 배속 불일치');this.speedAudio?.setRate(ack.rate);this.speedAudio?.resetHealth();this.speedChanged?.();}
+    catch(e){await this.recoverSpeed(String(e));throw e;}
+  }
+  private async recoverSpeed(reason:string,fatal=false){
+    if(!this.speed||this.stopping||this.speedRecovery||this.speedFault)return;
+    this.speedRecovery=true;this.speedRecoveryCount++;this.speedChanged?.();
+    this.speed.cancel('1× 복구를 위해 이전 요청을 취소했습니다.');
+    this.log('배속 실험 문제: '+reason+' · native 1× 복구를 확인합니다.');
+    try{const ack=await this.speed.request('set',1);if(ack.rate!==1)throw Error('1× 복구 불일치');this.speedAudio?.setRate(1);this.speedAudio?.resetHealth();
+      // Drain existing audio without dropping samples; do not run the guest ahead
+      // while a long queue returns to 1x. Never substitute silence or another engine.
+      if(!fatal&&this.speedAudio&&this.speedAudio.report().queueAheadMs>150){
+        this.ci?.pause();
+        await new Promise(r=>setTimeout(r,Math.min(1000,this.speedAudio!.report().queueAheadMs)));
+        if(this.speedAudio.report().queueAheadMs>150)throw Error('오디오 큐 복구 미확인');
+        if(!this.paused&&!this.stopping)this.ci?.resume();
+      }
+      this.log('native 1× 복구 확인. '+(fatal?'게임 오류는 복구되지 않았습니다. 진단을 종료하세요.':'이 세션에서는 2×를 다시 켜지 말고 진단을 확인하세요.'));
+      this.speedFault=reason+' · 1× 복구 확인'+(fatal?' · 실험 사용을 중단하고 진단 종료하세요.':' · 배속 전환 제한');
+    }catch(e){this.speedFault=reason+' · 1× 복구 확인 실패: '+String(e)+' · 실험 사용을 중단하고 진단 종료하세요.';this.log(this.speedFault);this.speed.verified=false;}
+    finally{this.speedRecovery=false;this.speedChanged?.();}
+  }
+  private async pollSpeed(){
+    if(!this.speed||this.speed.busy||this.speedRecovery||this.stopping||this.paused||this.speedFault)return;
+    try{const ack=await this.speed.request('status');
+      if(ack.rate!==this.speedAudio?.rate)throw Error('native/WebAudio 배속 불일치');
+      const issue=this.speedAudio?.problem(),nativeIssue=ack.audioUnderflows>this.lastNativeUnderflows+2||ack.audioClamps>0;this.lastNativeUnderflows=ack.audioUnderflows;
+      if(issue||nativeIssue)await this.recoverSpeed(issue??'native 오디오 버퍼 부족/상한 초과');
+    }catch(e){await this.recoverSpeed(String(e));}
+  }
   private ci?: CommandInterface;
   private audio?: AudioContext;
   private gain?: GainNode;
@@ -103,27 +151,28 @@ export class DosEngine implements Engine {
     return {
       identity:{requestedEngine:this.artifact.id,actualEngine:this.engineReady?this.artifact.id:null,status:this.engineReady?'verified':'not-ready',basis:this.artifact.worker?'verified WASM and pinned Worker bootstrap, backend ready':'fixed stable backend ready; release hash is pinned, not runtime measurement'},
       ...this.metrics,
+      integratedSpeed:this.speed?{...this.speedState(),control:this.speed.report(),audio:this.speedAudio?.report()}:undefined,
       performanceWindow:this.performanceWindow?.report(),
       averageFps:
         this.metrics.frames /
         Math.max(1, (performance.now() - this.startedAt) / 1000),
       audioState: this.audio?.state ?? "closed",
-      audioStartup:this.artifact.id==='phase9-8d'?this.audioStartup.report():undefined,
+      audioStartup:(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))?this.audioStartup.report():undefined,
       audioOutput:{...this.audioOutput,contextRate:this.audio?.sampleRate??null,
-        adapter:(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d'))?'mono-v1':'legacy-interleaved-stereo',
-        sourceChannels:1,outputBufferChannels:(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d'))?1:2,
+        adapter:(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))))?'mono-v1':'legacy-interleaved-stereo',
+        sourceChannels:1,outputBufferChannels:(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))))?1:2,
         runtimeEngine:this.artifact.id==='phase9-7'?'phase9-6':this.artifact.id,
         deviceUsage:'unobserved: mixed stream cannot distinguish OPL/PCM',
         baseLatency:this.audio?.baseLatency??null,outputLatency:this.audio?.outputLatency??null},
       paused: this.paused,
       music: this.musicMetrics,
       musicObservation:{...this.rawObservation},
-      bgmCommands:(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d')?this.bgmReport:undefined,
+      bgmCommands:(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h')))?this.bgmReport:undefined,
       execution: this.observation.report(),
       runtimeErrors:this.runtimeErrors.report(),
       artifact:{...this.artifact},
       reboot:this.reboot.report(),
-      cpuHistory:(this.artifact.id==='phase9-6'||(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d')))?{enabled:false,reason:'Instruction history compiled out; rare reboot/EXEC events retained.'}:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
+      cpuHistory:(this.artifact.id==='phase9-6'||(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h')))))?{enabled:false,reason:'Instruction history compiled out; rare reboot/EXEC events retained.'}:(this.artifact.id==='phase9-4'||this.artifact.id==='phase9-5b')?this.firstAnomaly.report():this.cpuHistory.report(),
       resolution: {width:this.canvas.width,height:this.canvas.height},
       note: "FPS is callback count / session wall time, including pauses; not a GPU timing measurement",
     };
@@ -133,6 +182,7 @@ export class DosEngine implements Engine {
     private canvas: HTMLCanvasElement,
     private log: (text: string) => void,
     private stdout?: (text:string)=>void,
+    private speedChanged?:()=>void,
   ) {}
   // Call synchronously in the Play click, before IndexedDB/ZIP awaits.
   activateAudio() {
@@ -147,6 +197,7 @@ export class DosEngine implements Engine {
     if (this.gain) this.gain.gain.value = volume;
   }
   async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:{id:ExperimentalEngineId;discardWrites:true}) {
+    this.stopping=false;this.speedFault=null;this.speedRecovery=false;this.speedRecoveryCount=0;
     this.startedAt = performance.now();
     this.audioStartup=new AudioStartup();
     this.audioStartup.state(0,this.audio?.state??"closed");
@@ -161,7 +212,7 @@ export class DosEngine implements Engine {
     this.artifact={id:'stable',emulators:'0.73.8',wasmSha256:'5a932a483cc366ce581ff3bee46a2e775fa315a8fb492dffb3029594ea2472bf',verification:'pinned-release-hash',sourceCommit:'aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5'};
     let verified:Awaited<ReturnType<typeof prepareRebootEngine>>|undefined;
     if(experiment){
-      if(!['phase9-2','phase9-3','phase9-4','phase9-5b','phase9-6','phase9-7','phase9-8c','phase9-8d'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
+      if(!['phase9-2','phase9-3','phase9-4','phase9-5b','phase9-6','phase9-7','phase9-8c','phase9-8d','phase9-8f','phase9-8h'].includes(experiment.id)||experiment.discardWrites!==true)throw Error('실험 엔진은 저장하지 않는 일회성 진단에서만 사용할 수 있습니다.');
       this.experimental=true;
       this.artifact={...this.artifact,id:experiment.id,wasmSha256:undefined,expectedSha256:experimentalEngine(experiment.id).wasmSha256,verification:'not-yet-verified'};
       try{verified=await prepareRebootEngine(experiment.id);}
@@ -172,7 +223,7 @@ export class DosEngine implements Engine {
     this.bgmReport={source:'not-sampled',ownership:'unknown'};
     this.musicMetrics={reads:0,bytes:0,largestRead:0,mounted:music.length};
     await loadEmulator();
-    const pinnedWorker=experiment?.id==='phase9-8d'?PHASE98D_WORKER:experiment?.id==='phase9-8c'?PHASE98C_WORKER:experiment?.id==='phase9-7'?PHASE97_WORKER:experiment?.id==='phase9-6'?PHASE96_WORKER:experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
+    const pinnedWorker=experiment?.id==='phase9-8h'?PHASE98H_WORKER:experiment?.id==='phase9-8f'?PHASE98F_WORKER:experiment?.id==='phase9-8d'?PHASE98D_WORKER:experiment?.id==='phase9-8c'?PHASE98C_WORKER:experiment?.id==='phase9-7'?PHASE97_WORKER:experiment?.id==='phase9-6'?PHASE96_WORKER:experiment?.id==='phase9-5b'?PHASE95B_WORKER:experiment?.id==='phase9-4'?PHASE94_WORKER:experiment?.id==='phase9-3'?PHASE93_WORKER:undefined;
     if(pinnedWorker)this.artifact.worker={entry:pinnedWorker.entry,common:pinnedWorker.common,expectedSha256:pinnedWorker.sha256,revision:pinnedWorker.revision,bootstrap:'pending'};
     // Own the worker lifecycle. v7 may never acknowledge exit while DOS waits
     // for BIOS input; an already-checkpointed session must still be stoppable.
@@ -184,11 +235,12 @@ export class DosEngine implements Engine {
     let rejectStartup: ((error:Error)=>void)|undefined;
     const queue: MessageEvent[] = [];
     worker.onmessage = (event) => {
+      if(event.data?.name==='ed4-speed-response'){this.speed?.accept(event.data.props);return;}
       if(event.data?.name==='ed4-audio-status'){
         const p=event.data.props;
-        if((this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d'))&&this.rawReply&&p?.id===this.rawRequest&&['reads','bytes','largestRead','mounted'].every(k=>Number.isSafeInteger(p[k])&&p[k]>=0)){
+        if((this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))))&&this.rawReply&&p?.id===this.rawRequest&&['reads','bytes','largestRead','mounted'].every(k=>Number.isSafeInteger(p[k])&&p[k]>=0)){
           this.musicMetrics={reads:p.reads,bytes:p.bytes,largestRead:p.largestRead,mounted:p.mounted};
-          if((this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d'))this.bgmReport=bgmDiagnostics(p.bgm);
+          if((this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))))this.bgmReport=bgmDiagnostics(p.bgm);
           this.rawObservation={source:'live-worker-query',capturedAtMs:performance.now()-this.startedAt};this.rawReply();
         }
         return;
@@ -226,6 +278,7 @@ export class DosEngine implements Engine {
         const failure=this.runtimeErrors.record(source,event.data.props);
         const message=`DOS Worker 오류 (${source}): ${failure.message}`;
         this.observation.error(message);this.log(message);
+        if(this.engineReady)void this.recoverSpeed(message,true);
         rejectStartup?.(new Error(message));
         return; // Diagnostic side channel is not part of the js-dos protocol.
       }
@@ -281,6 +334,7 @@ export class DosEngine implements Engine {
         this.runtimeErrors.record('parent-error',{name:e.error?.name,message:e.message,stack:e.error?.stack,filename:e.filename,lineno:e.lineno,colno:e.colno});
         const message=`DOS Worker 오류: ${diagnosticText(e.message,2048)}`;
         this.observation.error(message);this.log(message);
+        if(this.engineReady)void this.recoverSpeed(message,true);
         reject(new Error(message));
       };
     });
@@ -290,6 +344,13 @@ export class DosEngine implements Engine {
     ]).finally(() => clearTimeout(startupTimer)));
     if(pinnedWorker&&this.artifact.worker?.bootstrap!=='ready')throw Error('선택 엔진의 Worker 무결성 확인이 완료되지 않았습니다. 안정 엔진으로 대체하지 않습니다.');
     this.engineReady=true;
+    if(experiment?.id==='phase9-8h'){
+      if(!this.audio||!this.gain)throw Error('오디오 활성화 후 H 실험을 시작하세요.');
+      this.speedAudio=new SpeedAudio(this.audio,this.gain);
+      this.speed=new SpeedControl(message=>worker.postMessage(message),()=>this.speedChanged?.());
+      const ack=await this.speed.request('set',1);if(ack.rate!==1)throw Error('초기1× 확인 실패');
+      this.speedTimer=setInterval(()=>void this.pollSpeed(),1000);
+    }
     const context = this.canvas.getContext("2d", { alpha: false })!;
     const resize = (w: number, h: number) => {
       if (w < 1 || h < 1) return;
@@ -333,21 +394,26 @@ export class DosEngine implements Engine {
         this.canvas.dataset.audioSignal = "true";
       this.canvas.dataset.audioState = this.audio?.state ?? "closed";
       const audio = this.audio;
-      const observeAudio=(scheduledAt:number|null,queueEnd:number)=>{if(this.artifact.id==='phase9-8d')this.audioStartup.observe(samples,{atMs:performance.now()-this.startedAt,contextTime:audio?.currentTime??0,rate:ci.soundFrequency(),scheduledAt,queueEnd,state:audio?.state??"closed",program:this.observation.latestProgram()});};
+      const observeAudio=(scheduledAt:number|null,queueEnd:number)=>{if((this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h')))this.audioStartup.observe(samples,{atMs:performance.now()-this.startedAt,contextTime:audio?.currentTime??0,rate:ci.soundFrequency(),scheduledAt,queueEnd,state:audio?.state??"closed",program:this.observation.latestProgram()});};
       if (
         !audio ||
-        audio.state !== "running" ||
-        this.paused ||
+        (!this.speedAudio&&(audio.state !== "running"||this.paused)) ||
         samples.length < 2
       ){observeAudio(null,this.nextAudio);return;}
-      const buffer=emulatorAudioBuffer(audio,samples,ci.soundFrequency(),(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d')));
+      const buffer=emulatorAudioBuffer(audio,samples,ci.soundFrequency(),(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h')))));
       this.audioOutput.sourceRate=ci.soundFrequency();this.audioOutput.blocks++;
       this.audioOutput.inputFrames+=samples.length;this.audioOutput.scheduledFrames+=buffer.length;
+      if(this.speedAudio){
+        if(audio.state!=="running"&&!this.paused)void this.recoverSpeed("오디오 시계가 중단되었습니다. 오디오 재개 상태를 확인하세요.");
+        const schedule=this.speedAudio.push(buffer);this.nextAudio=schedule.next;observeAudio(schedule.at,schedule.previous);
+        if(schedule.audibleStarved&&this.speedAudio.rate===2&&!this.paused)void this.recoverSpeed('2× 오디오 공급 지연 관측: 현재 CPU 부하에서 연속 재생을 유지하지 못했습니다.');
+        return;
+      }
       const source = audio.createBufferSource();
       source.buffer = buffer;
       source.connect(this.gain!);
       const queueEnd=this.nextAudio;
-      if(this.artifact.id==='phase9-8d'){
+      if((this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))){
         // Never schedule over audio already queued. Only repair a late queue.
         const schedule=audioSchedule(this.nextAudio,audio.currentTime,buffer.duration);
         if(schedule.resync)this.audioOutput.resyncs++;
@@ -356,7 +422,7 @@ export class DosEngine implements Engine {
         if(this.nextAudio<audio.currentTime||this.nextAudio>audio.currentTime+.25){this.nextAudio=audio.currentTime+.025;this.audioOutput.resyncs++;}
         source.start(this.nextAudio);this.nextAudio+=buffer.duration;
       }
-      } finally {sample?.audio(performance.now()-audioStart,samples.length);}
+      } catch(e){if(this.speedAudio)void this.recoverSpeed(String(e),true);else throw e;} finally {sample?.audio(performance.now()-audioStart,samples.length);}
     });
     // The first text frame can precede onFrame registration.
     const initial = await ci.screenshot();
@@ -364,12 +430,12 @@ export class DosEngine implements Engine {
     this.log("DOS 엔진 연결 완료");
   }
   async refreshAudioDiagnostics(){
-    if(!['phase9-7','phase9-8c','phase9-8d'].includes(this.artifact.id)||!this.worker)return;
+    if(!['phase9-7','phase9-8c','phase9-8d','phase9-8f','phase9-8h'].includes(this.artifact.id)||!this.worker)return;
     if(this.rawPending)return this.rawPending;
     this.rawPending=new Promise<void>(resolve=>{
       const id=++this.rawRequest;
       const finish=()=>{clearTimeout(timer);this.rawReply=undefined;this.rawPending=undefined;resolve();};
-      const timer=setTimeout(()=>{if((this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d'))this.bgmReport={...this.bgmReport,source:'query-timeout-not-current'};this.rawObservation={source:'query-timeout-not-current',capturedAtMs:this.rawObservation.capturedAtMs};finish();},1500);
+      const timer=setTimeout(()=>{if((this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))))this.bgmReport={...this.bgmReport,source:'query-timeout-not-current'};this.rawObservation={source:'query-timeout-not-current',capturedAtMs:this.rawObservation.capturedAtMs};finish();},1500);
       this.rawReply=finish;this.worker!.postMessage({name:'ed4-audio-status',id});
     });
     return this.rawPending;
@@ -378,7 +444,7 @@ export class DosEngine implements Engine {
     if(!this.ci)throw Error('게임 메뉴에 진입한 뒤 측정하세요.');
     if(this.performanceWindow?.active)throw Error('성능 측정이 진행 중입니다.');
     const sample=this.performanceWindow=new PerformanceWindow(),id=++this.performanceId;
-    const native=this.artifact.id==='phase9-6'||(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||this.artifact.id==='phase9-8d'));
+    const native=this.artifact.id==='phase9-6'||(this.artifact.id==='phase9-7'||(this.artifact.id==='phase9-8c'||(this.artifact.id==='phase9-8d'||(this.artifact.id==='phase9-8f'||this.artifact.id==='phase9-8h'))));
     sample.start(performance.now());this.frameSentAt=undefined;
     const visibility=()=>{if(document.hidden)sample.invalidate('hidden');};visibility();
     document.addEventListener('visibilitychange',visibility);
@@ -404,6 +470,17 @@ export class DosEngine implements Engine {
   pause(value: boolean) {
     if(value)this.performanceWindow?.invalidate('paused');
     this.releaseKeys();
+    const epoch=++this.audioResumeEpoch;
+    if(this.speedAudio&&!value){
+      // AudioContext.resume is asynchronous. Keep guest paused until its clock runs.
+      this.audioResuming=true;this.speedChanged?.();
+      void this.audio?.resume().then(()=>{
+        if(this.stopping||epoch!==this.audioResumeEpoch)return;
+        this.paused=false;this.audioResuming=false;this.ci?.resume();this.speedChanged?.();
+      }).catch(e=>{this.audioResuming=false;void this.recoverSpeed('오디오 재개 실패: '+String(e),true);});
+      return;
+    }
+    this.audioResuming=false;
     this.paused = value;
     if (value) {
       this.ci?.pause();
@@ -412,7 +489,8 @@ export class DosEngine implements Engine {
       this.ci?.resume();
       void this.audio?.resume();
     }
-    this.nextAudio = 0;
+    if(!this.speedAudio)this.nextAudio = 0;
+    this.speedChanged?.();
   }
   async save(): Promise<Snapshot> {
     if(this.experimental)throw Error('실험 진단의 변경분은 저장하지 않습니다. 기존 세이브는 유지됩니다.');
@@ -460,6 +538,10 @@ export class DosEngine implements Engine {
     };
   }
   async stop() {
+    this.stopping=true;this.speedChanged?.();
+    clearInterval(this.speedTimer);this.speedTimer=undefined;
+    if(this.speed&&!this.speed.closed){this.speed.cancel('진단 종료');try{const ack=await this.speed.request('set',1);this.speedAudio?.setRate(ack.rate);}catch(e){this.log('종료 전1× 확인 실패: '+String(e)+' · Worker 폐기 후 다음 실행은 새1×로 시작합니다.');}}
+    this.stopping=true;this.engineReady=false;this.speed?.close();this.speedAudio?.dispose();this.speedChanged?.();
     this.performanceEnd?.();
     this.releaseKeys();
     if (this.ci) {

@@ -58,3 +58,9 @@
 # Release manifests hash every deployed byte, including HTML/CSS/licenses.
 # Git Desktop must not normalize CRLF/LF while staging these generated artifacts.
 /docs/ed4/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/public/dos-worker-*phase9-8f*.js -text
+/scripts/phase9-8f-worker-query.js -text
+/scripts/phase9-8f-return.inc -text
+
+/public/dos-worker-*phase9-8h*.js -text
+/scripts/phase9-8h-speed-worker.js -text

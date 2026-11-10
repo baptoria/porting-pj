@@ -1,11 +1,12 @@
 import {BUILD} from './launcher-update';
+import {analyzeBgmLinks} from './bgm-link';
 export const SCENES=['타이틀','필드','전투','복귀'] as const;
 export const SCENE_LIMITS={snapshots:16,events:2048,durationMs:2*60*60*1000,jsonBytes:8*1024*1024,pollMs:10000};
 const counter=(v:any)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0?v:null;
 export function sceneCounters(d:any){const b=d?.bgmCommands;return {int66:counter(b?.int66Calls),int69:counter(b?.int69Calls),rawReads:counter(b?.rawReads),rawBytes:counter(d?.music?.bytes),recorded:counter(b?.totalRecorded),...Object.fromEntries(Object.entries(b?.commands??{}).map(([k,v])=>['int66_'+k,counter(v)]))};}
 export function counterDelta(now:Record<string,number|null>,previous?:Record<string,number|null>){return Object.fromEntries(Object.entries(now).map(([k,v])=>[k,v===null||previous?.[k]==null||v<previous[k]! ?null:v-previous[k]!]));}
 // Inputs come only from the engine's validated metadata reports, never files or PCM.
-function select(d:any){return structuredClone(Object.fromEntries(['artifact','identity','audioState','audioOutput','audioStartup','bgmCommands','music','musicObservation','runtimeErrors','resolution','frames','paused'].filter(k=>d?.[k]!==undefined).map(k=>[k,d[k]])));}
+function select(d:any){return structuredClone(Object.fromEntries(['artifact','identity','audioState','integratedSpeed','audioOutput','audioStartup','bgmCommands','music','musicObservation','runtimeErrors','resolution','frames','paused'].filter(k=>d?.[k]!==undefined).map(k=>[k,d[k]])));}
 export class SceneSession{
  readonly id=crypto.randomUUID();readonly startedAt=new Date().toISOString();readonly started=performance.now();
  readonly snapshots:any[]=[];private first:any[]=[];private tail:any[]=[];private lastSequence=0;private previous?:Record<string,number|null>;
@@ -40,7 +41,7 @@ export class SceneSession{
  }
  end(){this.endedAt=new Date().toISOString();}
  report(){return {format:'ed4-scene-diagnostics',version:1,sessionId:this.id,startedAt:this.startedAt,endedAt:this.endedAt,build:BUILD,requestedEngine:this.requestedEngine,snapshots:this.snapshots,
-  eventArchive:{first:this.first,recent:this.tail,lastSequence:this.lastSequence,unobservedSequenceCount:this.gaps,hostDiscarded:this.discarded},audioStartup:this.startup,latest:this.latest,
+  eventArchive:{first:this.first,recent:this.tail,lastSequence:this.lastSequence,unobservedSequenceCount:this.gaps,hostDiscarded:this.discarded},bgmLink:analyzeBgmLinks([...this.first,...this.tail],this.latest?.bgmCommands?.tracks),audioStartup:this.startup,latest:this.latest,
   collection:{polls:this.polls,queryWaitMs:this.queryMs,limitReached:this.limit||this.expired,limits:SCENE_LIMITS},
   limitations:['INT66/69 are requests, not verified BGM ownership or playback success.','Batched queries may miss overwritten events; missing history is never reconstructed.','Android download completion and Galaxy playback must be checked on device.']};}
  serialize(){const text=JSON.stringify(this.report(),null,2);if(new TextEncoder().encode(text).length>SCENE_LIMITS.jsonBytes)throw Error('진단 JSON 크기 상한 초과. 수집 기록은 유지됩니다.');return text;}

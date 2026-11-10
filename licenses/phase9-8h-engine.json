@@ -1,0 +1,49 @@
+{
+  "id": "phase9-8h",
+  "emulators": "0.73.8",
+  "emscripten": "3.1.21",
+  "files": {
+    "wdosbox.js": {
+      "sha256": "08d070fe3999fd7a3ad728e082d3109aa6ef4831dc1edbbaaa7f988d43816bc2",
+      "bytes": 127292
+    },
+    "wdosbox.wasm": {
+      "sha256": "8f799f50bb6ade563124922057195d3bc013e269f40dd7c585307125b780cc14",
+      "bytes": 1466668
+    },
+    "wdosbox.js.symbols": {
+      "sha256": "231157000348a6e916b279438e53667bd94daae107c5571f40df3bed7f6158bb",
+      "bytes": 239941
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    "DOSBOX-COPYING": {
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374",
+      "bytes": 17995
+    },
+    "SOURCE.txt": {
+      "sha256": "21eb0f12cf16cc4359e1d178fa974942ef700aaab24b64ff33a31513ed1ecd11",
+      "bytes": 244
+    }
+  },
+  "changes": {
+    "baseSourceSha256": "d717c93d4d929e7f5267f09c868f9101a8a8d7aa2199d1709f97c21daf4f1ab4",
+    "changes": [
+      {
+        "path": "native/dosbox/src/dosbox.cpp",
+        "before": "9c5e34886b83f19dc7426fb8114ddca32d9d9f2336a37568bc779141bfdd503a",
+        "after": "b04dddddab530e75eb95d44fd8100806ed3bc5f60586ccad425257902cc390e6"
+      },
+      {
+        "path": "native/dosbox-jsdos/jsdos/jsdos-mixer.cpp",
+        "before": "fc9d3af6fa8a5e3be8b50a5d36d4e1d5707847e440c8697673f0d89c45717f9f",
+        "after": "2d377b382bf64ec6309d3dbe14c8325afc8ce76bce790f876eb5ffdbbea57a68"
+      }
+    ],
+    "timerSource": "Unchanged 9-8F / 9-8B tick multiplier; new getter only",
+    "audioClock": "PIC_Ticks; no BGM separation or device muting"
+  },
+  "sourceZipSha256": "095e1a1c0c2e957689fd06abbd47516fe77c11c3fc14c54103089aec357ebf42"
+}
