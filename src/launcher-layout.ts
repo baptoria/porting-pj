@@ -1,10 +1,12 @@
+import {DEVELOPER_TOOLS} from './build-policy';
 /** Presentation only. Move existing controls without replacing their event listeners. */
 export function installLauncherLayout(){
  const q=<T extends HTMLElement=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
  const panel=q('.main-panel'),area=q('#play-area'),toolbar=q('.player-toolbar');
  document.body.classList.add('fantasy-launcher');
  q('.brand').innerHTML='<span class="brand-mark">Ⅳ</span><span>ED4 <b>MOBILE</b><small>나만의 모험을 이어서</small></span>';
- q('.phase').textContent='LOCAL PLAY';
+ q('.phase').textContent=DEVELOPER_TOOLS?'개발 빌드 · 진단 전용':'LOCAL PLAY';
+ if(DEVELOPER_TOOLS)q('.phase').id='developer-badge';
  panel.insertAdjacentHTML('afterbegin',`<section class="launcher-hero" aria-labelledby="launcher-title"><div class="hero-copy"><span class="eyebrow">THE LEGEND OF HEROES · DOS</span><h1 id="launcher-title">영웅전설 <span>IV</span></h1><p>다시 펼치는, 당신의 모험.</p><div id="selected-profile"></div><div id="registration-action"></div></div><div class="launch-deck"><div id="normal-launch"><span class="eyebrow">일반 실행 · 1×</span></div><div class="trial-launch"><button id="trial-k">2× 시험 실행 <span>↗</span></button><small>Phase 9-8K · Galaxy 2× 확인 · 음악도 가속<br><strong>시험 중 저장 변경분은 폐기됩니다.</strong></small></div></div></section><nav class="launcher-nav" aria-label="런처 메뉴"><button id="choose-profile">게임 · 프로필</button><button id="game-settings">게임 설정</button><button id="launcher-controls">조작 설정</button><button id="launcher-advanced">고급 도구</button></nav>`);
  q('#selected-profile').append(q('.title-row'));
  q('#registration-action').append(q('#simple-import'));

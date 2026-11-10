@@ -4,7 +4,7 @@ import {strToU8,unzipSync} from 'fflate';
 import {folderFixture} from '../folder-fixture';
 import {menu,stop} from '../phase9-8i/helpers';
 test('developer two-point menu/LOAD export uses real K events and keeps game input alive',async({page})=>{
- await page.setViewportSize({width:844,height:390});page.on('dialog',d=>void d.accept());await page.goto('/porting-pj/ed4/');await expect(page.locator('#offline')).toHaveText('오프라인 준비 완료');
+ await page.setViewportSize({width:844,height:390});page.on('dialog',d=>void d.accept());await page.goto('/porting-pj/ed4-dev/');await expect(page.locator('#offline')).toHaveText('오프라인 준비 완료');
  const probe=Buffer.from((await readFile('tests/fixtures/phase9-8d-probe.b64','utf8')).trim(),'base64');
  await page.locator('#simple-import').click();await page.locator('#simple-folder').setInputFiles(await folderFixture({...unzipSync(await readFile('public/test-program.zip')),'GAME.BAT':strToU8('PROBE.COM\r\nED4TEST.COM\r\n'),'PROBE.COM':probe,'ED4-01.RAW':new TextEncoder().encode('RAWTEST1abcd'),'TEST.EFC':new TextEncoder().encode('EFCTEST1efgh')},'menu-metadata'));
  await expect(page.locator('#simple-import-dialog')).not.toBeVisible();await expect(page.locator('#play-engine')).toHaveValue('phase9-8k');await page.locator('#play').click();await expect(page.locator('#logs')).toContainText('BGM_PROBE_OK');await page.locator('#fullscreen').click();

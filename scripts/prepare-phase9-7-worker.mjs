@@ -1,3 +1,4 @@
+import {outDir} from './build-target.mjs';
 // GPL-2.0-only. Reuse EXACT 9-6 common code + WASM; only add an on-demand
 // numerical RAW status query. No FS reads, persistence or audio sample exports.
 import {readFile,writeFile} from 'node:fs/promises';
@@ -21,11 +22,11 @@ catch(e){if(e.code!=='ENOENT')throw e;await writeFile('public/'+manifest.entry,e
 await writeFile('public/phase9-7-worker.json',JSON.stringify(manifest,null,2)+'\n');
 await writeFile('src/generated/phase9-7-worker.ts',`// Generated; same reviewed 9-6 common/engine, read-only status query.\nexport const PHASE97_WORKER=${JSON.stringify(manifest,null,2)} as const;\n`);
 if(process.argv.includes('--check')){
- for(const root of ['public','docs/ed4']){
+ for(const root of ['public',outDir]){
   const m=JSON.parse(await readFile(root+'/phase9-7-worker.json','utf8'));
   if(JSON.stringify(m)!==JSON.stringify(manifest)||hash(await readFile(root+'/'+m.entry))!==entrySha256||hash(await readFile(root+'/'+m.common))!==pinned.sha256)throw Error('Phase 9-7 deployed Worker mismatch');
  }
- const sw=await readFile('docs/ed4/sw.js','utf8');
+ const sw=await readFile(outDir+'/sw.js','utf8');
  for(const f of [manifest.entry,manifest.common,'phase9-7-worker.json'])if(!sw.includes('./'+f))throw Error('Offline omission: '+f);
 }
 console.log('Pinned audio status Worker:',entrySha256,'common:',pinned.sha256);

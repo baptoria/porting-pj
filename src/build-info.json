@@ -1,8 +1,8 @@
 {
-  "id": "9-8o-default-public-20261110161853717-024ccec8",
-  "commit": "e90e93a15b9c",
+  "id": "9-8p-dev-20261110190943522-70ff3973",
+  "commit": "8285547d3985",
   "dirty": true,
-  "builtAt": "2026-11-10T16:18:53.717Z",
-  "revision": "phase9-8o-default-speed-3",
-  "audience": "public"
+  "builtAt": "2026-11-10T19:09:43.522Z",
+  "revision": "phase9-8p-isolated-builds-1",
+  "audience": "developer"
 }

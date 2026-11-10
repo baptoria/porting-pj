@@ -1,4 +1,5 @@
 import { openDB } from "idb";
+import {APP_STORAGE} from './app-storage';
 import { canonicalPath, validateTree } from "./archive";
 import type { Files, Profile, Save, MusicReference } from "./model";
 export interface Track {
@@ -22,7 +23,7 @@ export interface MusicMount {
   file: File;
 }
 export const musicDB = () =>
-  openDB("ed4-music-v1", 1, {
+  openDB(APP_STORAGE.musicDatabase, 1, {
     upgrade(db) {
       db.createObjectStore("packs", { keyPath: "id" });
     },
@@ -39,14 +40,14 @@ export async function musicDirectory(id: string, create = false) {
     );
   const root = await navigator.storage.getDirectory();
   return (
-    await root.getDirectoryHandle("ed4-music", { create })
+    await root.getDirectoryHandle(APP_STORAGE.musicRoot, { create })
   ).getDirectoryHandle(id, { create });
 }
 export async function removeMusic(id: string) {
   try {
     const root = await navigator.storage.getDirectory();
     await (
-      await root.getDirectoryHandle("ed4-music")
+      await root.getDirectoryHandle(APP_STORAGE.musicRoot)
     ).removeEntry(id, { recursive: true });
   } catch (e) {
     if (!(e instanceof DOMException && e.name === "NotFoundError")) throw e;

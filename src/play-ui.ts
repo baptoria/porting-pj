@@ -1,4 +1,5 @@
-export const PLAY_UI_KEY='ed4-play-ui-v1';
+import {storageKey} from './app-storage';
+export const PLAY_UI_KEY=storageKey('ed4-play-ui-v1');
 export const DEFAULT_PLAY_UI={joystickSize:150,joystickX:0,joystickY:100,opacity:35,buttonSize:72,buttonX:100,buttonY:100,swap:false,fit:'contain' as 'contain'|'fill'};
 export type PlayUi=typeof DEFAULT_PLAY_UI;
 const ranges:Record<string,[number,number]>={joystickSize:[80,240],joystickX:[0,100],joystickY:[0,100],opacity:[15,85],buttonSize:[44,120],buttonX:[0,100],buttonY:[0,100]};

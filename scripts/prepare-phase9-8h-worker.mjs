@@ -1,3 +1,4 @@
+import {outDir} from './build-target.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 const hash=b=>createHash('sha256').update(b).digest('hex');
@@ -13,5 +14,5 @@ const entrySha256=hash(entry),name=`dos-worker-phase9-8h-${entrySha256.slice(0,1
 for(const [path,content]of [[file,common],[name,entry]]){try{if(!(await readFile('public/'+path)).equals(Buffer.from(content)))throw Error('Immutable path collision');}catch(e){if(e.code!=='ENOENT')throw e;await writeFile('public/'+path,content);}}
 await writeFile('public/phase9-8h-worker.json',JSON.stringify(manifest,null,2));
 await writeFile('src/generated/phase9-8h-worker.ts','// Generated immutable BGM diagnostic Worker.\nexport const PHASE98H_WORKER='+JSON.stringify(manifest,null,2)+' as const;\n');
-if(process.argv.includes('--check'))for(const root of ['public','docs/ed4']){const m=JSON.parse(await readFile(root+'/phase9-8h-worker.json'));if(JSON.stringify(m)!==JSON.stringify(manifest)||hash(await readFile(root+'/'+name))!==entrySha256||hash(await readFile(root+'/'+file))!==sha256)throw Error('Deployed Worker mismatch');if(root.startsWith('docs')){const sw=await readFile(root+'/sw.js','utf8');for(const f of [name,file,'phase9-8h-worker.json'])if(!sw.includes('./'+f))throw Error('Offline cache missing '+f);}}
+if(process.argv.includes('--check'))for(const root of ['public',outDir]){const m=JSON.parse(await readFile(root+'/phase9-8h-worker.json'));if(JSON.stringify(m)!==JSON.stringify(manifest)||hash(await readFile(root+'/'+name))!==entrySha256||hash(await readFile(root+'/'+file))!==sha256)throw Error('Deployed Worker mismatch');if(root.startsWith('docs')){const sw=await readFile(root+'/sw.js','utf8');for(const f of [name,file,'phase9-8h-worker.json'])if(!sw.includes('./'+f))throw Error('Offline cache missing '+f);}}
 console.log(manifest);

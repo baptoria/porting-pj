@@ -1,4 +1,5 @@
 import { openDB, type DBSchema } from "idb";
+import {APP_STORAGE} from './app-storage';
 import type { Archive, Profile, Save } from "./model";
 import { migrateProfile, identity, checkIdentity } from "./integrity";
 import { normalizeSave } from "./save-state";
@@ -15,7 +16,7 @@ export const database = () => {
   let late = false, timer: ReturnType<typeof setTimeout> | undefined;
   let rejectBlocked: (e: Error) => void;
   const blocked = new Promise<never>((_, reject) => { rejectBlocked = reject; });
-  const opening = openDB<LauncherDB>("ed4-mobile-v1", 3, {
+  const opening = openDB<LauncherDB>(APP_STORAGE.database, 3, {
     blocked() { timer ??= setTimeout(() => { late = true; rejectBlocked(Error("저장소 업데이트가 다른 실행기 탭을 기다리고 있습니다. 다른 탭의 게임을 안전하게 종료하고 탭을 닫은 뒤 다시 시도하세요. 데이터 삭제는 필요 없습니다.")); }, 8000); },
     upgrade(db, oldVersion, _newVersion, tx) {
       if (oldVersion < 1) {

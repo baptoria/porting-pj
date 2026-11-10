@@ -1,5 +1,6 @@
+import {storageKey} from './app-storage';
 export type PlayEngine = 'stable'|'phase9-7'|'phase9-8k';
-export const PLAY_PREFERENCE_KEY='ed4-play-engine-v2';
+export const PLAY_PREFERENCE_KEY=storageKey('ed4-play-engine-v2');
 // v1 predates ordinary speed support. Retain it, but do not treat that old
 // limited choice as an opt-out. Only a new explicit choice overrides default K.
 export function preferredPlayEngine(storage:Pick<Storage,'getItem'>):PlayEngine{

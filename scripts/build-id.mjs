@@ -4,6 +4,6 @@ import {randomUUID} from 'node:crypto';
 let commit='unknown',dirty=true;
 try{commit=execFileSync('git',['rev-parse','--short=12','HEAD'],{encoding:'utf8'}).trim();dirty=!!execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim();}catch{}
 const builtAt=new Date().toISOString();
-const build={id:`9-8o-default-${process.env.ED4_DEVELOPER_BUILD === "1" ? "dev" : "public"}-${builtAt.replace(/\D/g,'')}-${randomUUID().slice(0,8)}`,commit,dirty,builtAt,revision:'phase9-8o-default-speed-3',audience:process.env.ED4_DEVELOPER_BUILD === '1'?'developer':'public'};
+const build={id:`9-8p-${process.env.ED4_DEVELOPER_BUILD === "1" ? "dev" : "public"}-${builtAt.replace(/\D/g,'')}-${randomUUID().slice(0,8)}`,commit,dirty,builtAt,revision:'phase9-8p-isolated-builds-1',audience:process.env.ED4_DEVELOPER_BUILD === '1'?'developer':'public'};
 await writeFile('src/build-info.json',JSON.stringify(build,null,2)+'\n');
 console.log('Launcher build:',build.id);

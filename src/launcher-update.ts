@@ -1,3 +1,4 @@
+import {storageKey} from './app-storage';
 import BUILD from './build-info.json';
 export {BUILD};
 type Release={format:string;version:number;build:typeof BUILD;files:{path:string;bytes:number;sha256:string}[];swSha256:string};
@@ -58,15 +59,15 @@ export function installLauncherUpdate(host:HTMLElement,busy:()=>boolean,bootstra
   consent=true;applying=true;
   try{
    if(!latest||!registration?.waiting)throw Error('대기 중인 검증된 업데이트가 없습니다.');
-   sessionStorage.setItem('ed4-expected-build',latest.build.id);
+   sessionStorage.setItem(storageKey('ed4-expected-build'),latest.build.id);
    const reply=await workerMessage(registration.waiting,{type:'ED4_APPLY',id:latest.build.id},7000);
    if(!reply?.accepted)throw Error(reply?.error??'업데이트 활성화 실패');
    message='검증된 실행기로 전환 중…';draw();
    setTimeout(()=>{if(applying){message='서비스 워커 전환 응답이 지연됩니다. 안전한 업데이트 페이지를 열어 다시 확인하세요. 사용자 데이터는 유지되며 혼합 실행을 막기 위해 새 게임 시작은 잠겨 있습니다.';draw();}},12000);
-  }catch(e){locked=false;consent=false;applying=false;sessionStorage.removeItem('ed4-expected-build');message=String(e);draw();}
+  }catch(e){locked=false;consent=false;applying=false;sessionStorage.removeItem(storageKey('ed4-expected-build'));message=String(e);draw();}
  };
  q('#update-check').onclick=()=>void check();
- try{const expected=sessionStorage.getItem('ed4-expected-build');if(expected){postUpdate={expected,actual:BUILD.id,matches:expected===BUILD.id};message=expected===BUILD.id?'업데이트 후 실제 빌드 ID 재검증 완료':'업데이트 후 빌드 ID 불일치. 게임 시작 전 새 버전을 다시 확인하세요.';if(expected===BUILD.id)sessionStorage.removeItem('ed4-expected-build');}}catch{}
+ try{const expected=sessionStorage.getItem(storageKey('ed4-expected-build'));if(expected){postUpdate={expected,actual:BUILD.id,matches:expected===BUILD.id};message=expected===BUILD.id?'업데이트 후 실제 빌드 ID 재검증 완료':'업데이트 후 빌드 ID 불일치. 게임 시작 전 새 버전을 다시 확인하세요.';if(expected===BUILD.id)sessionStorage.removeItem(storageKey('ed4-expected-build'));}}catch{}
  draw();new MutationObserver(draw).observe(document.body,{attributes:true,attributeFilter:['class']});
  // Active SW identity remains observable offline; do not gate it on network success.
  if('serviceWorker' in navigator&&import.meta.env.PROD){void refresh();void check();}

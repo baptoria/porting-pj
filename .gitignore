@@ -106,3 +106,19 @@ Desktop.ini
 
 !public/sources/emulators-0.73.8-phase9-8k-source.zip
 !docs/ed4/sources/emulators-0.73.8-phase9-8k-source.zip
+
+# Independent developer output: identical reviewed sources and CC0 test only.
+!docs/ed4-dev/sources/emulators-0.73.8-source.zip
+!docs/ed4-dev/sources/ed4-mobile-source.zip
+!docs/ed4-dev/test-program.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-2-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-3-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-4-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-5b-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-6-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-8c-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-8d-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-8f-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-8h-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-8i-source.zip
+!docs/ed4-dev/sources/emulators-0.73.8-phase9-8k-source.zip

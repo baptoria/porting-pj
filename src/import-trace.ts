@@ -1,3 +1,4 @@
+import {storageKey} from './app-storage';
 // Timings contain counters only: never game bytes, host paths or file contents.
 export const stageLabels = {
   index: 'ZIP 목록 분석', read: '파일 읽기', inflate: '압축 해제', crc: 'CRC 검증',
@@ -59,12 +60,12 @@ export function rememberImport(data: ImportTraceData, force=false) {
   latest=structuredClone(data);
   if(force || performance.now()-lastPersist>1000) {
     lastPersist=performance.now();
-    try { localStorage.setItem('ed4-import-trace-v1',JSON.stringify(latest)); } catch { /* diagnostics cannot break an import */ }
+    try { localStorage.setItem(storageKey('ed4-import-trace-v1'),JSON.stringify(latest)); } catch { /* diagnostics cannot break an import */ }
   }
 }
 export function importTrace() {
   if(latest) return structuredClone(latest);
-  try { return JSON.parse(localStorage.getItem('ed4-import-trace-v1') ?? 'null') as ImportTraceData | null; } catch { return null; }
+  try { return JSON.parse(localStorage.getItem(storageKey('ed4-import-trace-v1')) ?? 'null') as ImportTraceData | null; } catch { return null; }
 }
 export function failImport(error:unknown) {
   const d=importTrace();if(!d)return;

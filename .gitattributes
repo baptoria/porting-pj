@@ -72,3 +72,5 @@ scripts/phase9-8i-speed-worker.js -text
 **/dos-worker*phase9-8k*.js -text
 **/audio-worklet-phase9-8k-*.js -text
 scripts/phase9-8k-speed-worker.js -text
+
+/docs/ed4-dev/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

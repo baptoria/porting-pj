@@ -1,3 +1,4 @@
+import {storageKey,APP_STORAGE} from './app-storage';
 import {DEVELOPER_TOOLS, DEVELOPER_ACTIONS, requireDeveloperTools} from './build-policy';
 import {installPublicLauncher} from './public-launcher';
 import {preferredPlayEngine,rememberPlayEngine} from './play-preference';
@@ -526,7 +527,7 @@ async function refresh() {
   $("#recent-save").textContent = $("#save-label").textContent;
   if (selected && [current().baseId, ...current().patchIds].some(key => !archives.some(a => a.id === key)))
     $("#recent-save").textContent = "게임 데이터가 없습니다. 설정 → 저장 공간 관리 → 다시 연결을 이용하세요. 세이브는 유지됩니다.";
-  try { localStorage.setItem("ed4-selected", selected); } catch {}
+  try { localStorage.setItem(storageKey('ed4-selected'), selected); } catch {}
   updateButtons();
 }
 $("#profiles").addEventListener("click", (e) => {
@@ -1016,7 +1017,7 @@ for (const [name, code] of [
 function saveControls() {
   try {
     localStorage.setItem(
-      "ed4-controls",
+      storageKey('ed4-controls'),
       JSON.stringify({
         size: $<HTMLInputElement>("#control-size").value,
         inset: $<HTMLInputElement>("#control-inset").value,
@@ -1071,7 +1072,7 @@ for (const name of [
     saveControls();
   });
 try {
-  const saved = JSON.parse(localStorage.getItem("ed4-controls") ?? "null");
+  const saved = JSON.parse(localStorage.getItem(storageKey('ed4-controls')) ?? "null");
   if (saved) {
     for (const [name, key] of [
       ["control-size", "size"],
@@ -1522,7 +1523,7 @@ async function init() {
     return;
   }
   void navigator.locks.request(
-    "ed4-mobile-writer",
+    APP_STORAGE.writerLock,
     { ifAvailable: true },
     async (lock) => {
       if (!lock) {
@@ -1572,10 +1573,10 @@ $("#open-import").textContent = "고급 등록 / 모드 관리";
 $("#advanced-content").insertAdjacentHTML("afterbegin", '<p class="hint">게임 내부 저장 후 «저장 후 종료»를 누르세요. 브라우저 데이터는 삭제될 수 있으므로 저장 백업 ZIP을 기기 밖에도 보관하세요. CPU·메모리·사운드·실행 파일 변경은 실행 프로필의 설정에서 합니다.</p>');
 $("#play-area").before($(".simple-summary"));
 const advanced = $<HTMLDetailsElement>("#advanced-settings");
-try { advanced.open = localStorage.getItem("ed4-advanced") === "open"; selected = localStorage.getItem("ed4-selected") ?? ""; } catch {}
+try { advanced.open = localStorage.getItem(storageKey('ed4-advanced')) === "open"; selected = localStorage.getItem(storageKey('ed4-selected')) ?? ""; } catch {}
 advanced.addEventListener("toggle", () => {
   $("#settings-toggle").setAttribute("aria-expanded", String(advanced.open));
-  try { localStorage.setItem("ed4-advanced", advanced.open ? "open" : "closed"); } catch {}
+  try { localStorage.setItem(storageKey('ed4-advanced'), advanced.open ? "open" : "closed"); } catch {}
 });
 $("#settings-toggle").onclick = () => { advanced.open = !advanced.open; if (advanced.open) advanced.scrollIntoView({block:"nearest"}); };
 installSimpleImport({run: task, idle, profiles: () => profiles, selected: () => selected,
@@ -1692,4 +1693,4 @@ for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelec
 
 installLauncherLayout();
 if(!DEVELOPER_TOOLS)installPublicLauncher();
-else {document.body.dataset.buildAudience="developer";$(".phase").textContent="개발 빌드";}
+else {document.body.dataset.buildAudience="developer";}

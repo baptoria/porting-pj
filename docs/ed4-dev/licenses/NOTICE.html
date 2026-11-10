@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>ED4 Mobile · 라이선스</title
+  ><style>
+    body {
+      font: 16px/1.8 system-ui;
+      background: #10181d;
+      color: #dce5e6;
+      max-width: 850px;
+      margin: 60px auto;
+      padding: 24px;
+    }
+    a {
+      color: #d8ba83;
+    }
+    code {
+      font-size: 14px;
+    }
+  </style>
+  <h1>오픈소스 안내</h1>
+  <p>
+    ED4 Mobile은 js-dos v7 계열의 <code>emulators 0.73.8</code> DOSBox
+    WebAssembly 엔진을 사용하는 독립 런처입니다. 상용 게임과 게임 데이터는
+    제공하지 않습니다. 이 프로젝트는 GPL-2.0-only로 배포되며 보증 없이
+    제공됩니다.
+  </p>
+  <ul>
+    <li>
+      js-dos emulators / DOSBox: Alexander Guryanov 및 DOSBox 기여자.
+      <a href="./emulators-GPL-2.0.txt">GPL v2 전문</a> ·
+      <a href="../sources/emulators-0.73.8-source.zip">해당 런타임 소스 ZIP</a>
+      ·
+      <a
+        href="https://github.com/js-dos/emulators/tree/aa5ae93628ef8a44b6f645c8df2c4846c6bad9e5"
+        >원본 커밋</a
+      >
+    </li>
+    <li>fflate 0.8.3: Arjun Barrett · <a href="./fflate-MIT.txt">MIT</a></li>
+    <li>선택형 Phase 9-2 실험 엔진: 같은 emulators/DOSBox GPL 조건을 따릅니다.
+      <a href="../sources/emulators-0.73.8-phase9-2-source.zip">수정 대응 소스 및 BUILD.md</a> ·
+      <a href="../vendor/experimental/phase9-2/manifest.json">실험 바이너리 해시</a>.
+      Reboot_Handler Asyncify 보완과 BIOS/DOS 실행 관측만 추가했습니다.</li>
+    <li>idb 8.0.3: Jake Archibald · <a href="./idb-ISC.txt">ISC</a></li>
+    <li>
+      독립 런처 소스:
+      <a href="../sources/ed4-mobile-source.zip">ED4 Mobile 소스 ZIP</a>
+    </li>
+    <li>
+      ED4TEST.COM: 이 프로젝트에서 작성한 공개 검증용 프로그램, CC0-1.0. 생성
+      소스는 런처 소스의 scripts/test-program.mjs입니다.
+      <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 안내</a>
+    </li>
+  </ul>
+  <p>
+    소스 ZIP의 SOURCE-NOTES.txt와 프로젝트의 THIRD_PARTY_NOTICES.md에 버전 및
+    빌드 안내가 있습니다. 테스트용 게임 번들과 네이티브 벤치마크 바이너리는
+    배포에 포함하지 않습니다.
+  </p>
+  <a href="../">실행기로 돌아가기</a>
+
+<p>Phase 9-3 CPU history experiment: emulators 0.73.8 / DOSBox, GPL-2.0-or-later. <a href="../sources/emulators-0.73.8-phase9-3-source.zip">Full corresponding source and build instructions</a>. Reboot Asyncify fix retained; bounded metadata observation only. Stable and Phase 9-2 engines are preserved.</p>
+
+<p>Phase 9-4 first-event experiment: emulators 0.73.8 / DOSBox, GPL-2.0-or-later. <a href="../sources/emulators-0.73.8-phase9-4-source.zip">Full corresponding source and build instructions</a>. Bounded first-event metadata; no CPU behavior changes. Earlier engines remain available.</p>
+<p>Phase 9-5B memory compatibility experiment: emulators 0.73.8 / DOSBox, GPL-2.0-or-later. <a href="../sources/emulators-0.73.8-phase9-5b-source.zip">Full corresponding source and build instructions</a>. Opt-in S3 text aperture RAM fallback, based on 0.74-3 behavior. Earlier engines remain unchanged.</p>
+<p>Phase 9-6 performance experiment: CPU instruction history compiled out; VGA compatibility and Reboot_Handler Asyncify retained. GPL-2.0-or-later <a href="../sources/emulators-0.73.8-phase9-6-source.zip">full source and build instructions</a>. Previous engines remain available.</p>
+<p>Phase 9-8C BGM command observer: event-only INT66/DOS read metadata, CPU instruction history remains OFF. GPL-2.0-or-later <a href="../sources/emulators-0.73.8-phase9-8c-source.zip">full corresponding source and build instructions</a>. No music suppression or speed change. Earlier engines remain unchanged.</p>
+</html>
+
+<p>Phase9-8D INT66/69 event-only diagnostic: <a href="../sources/emulators-0.73.8-phase9-8d-source.zip">complete corresponding source and build instructions</a>. Existing engines unchanged.</p>
+
+<p>Phase9-8F INT69 return observer and local timer experiment: <a href="../sources/emulators-0.73.8-phase9-8f-source.zip">complete corresponding source and build instructions</a>. Default 1x, no native audio suppression. Prior engines unchanged.</p>
+
+<p>Phase9-8H opt-in all-audio 1x/2x experiment: <a href="../sources/emulators-0.73.8-phase9-8h-source.zip">complete corresponding source and build instructions</a>. Guest-clock mixer drain; no BGM/SE separation. Previous engines preserved.</p>
+
+<p>Phase9-8I: H-derived engine with reversible session cycles comparison. <a href="../sources/emulators-0.73.8-phase9-8i-source.zip">Complete corresponding source</a>. AudioWorklet source is included in the launcher source archive. Existing engines preserved.</p>
