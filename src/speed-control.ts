@@ -5,7 +5,7 @@ export class SpeedControl {
  private pending?:{id:number;resolve:(v:any)=>void;reject:(e:Error)=>void;timer:ReturnType<typeof setTimeout>};
  rate:Speed=1;verified=false;closed=false;
  readonly events:any[]=[];last:any=null;
- constructor(private send:(message:any)=>void,private changed:()=>void,private timeoutMs=3000){}
+ constructor(private send:(message:any)=>void,private changed:()=>void,private timeoutMs=3000,private expectedEngine='phase9-8h'){}
  get busy(){return !!this.pending;}
  private record(e:any){if(this.events.length===128)this.events.shift();this.events.push({atMs:performance.now(),...e});}
  request(kind:'set'|'status',rate?:Speed):Promise<any>{
@@ -22,7 +22,7 @@ export class SpeedControl {
  accept(p:any){
   if(!this.pending||p?.session!==this.session||p.id!==this.pending.id)return;
   const pending=this.pending;clearTimeout(pending.timer);
-  if(!p.ok||p.engine!=='phase9-8h'||![1,2].includes(p.rate)||!['guestTicks','audioFrames','audioUnderflows','audioClamps'].every(k=>Number.isFinite(p[k])&&p[k]>=0)){
+  if(!p.ok||p.engine!==this.expectedEngine||![1,2].includes(p.rate)||!['guestTicks','audioFrames','audioUnderflows','audioClamps'].every(k=>Number.isFinite(p[k])&&p[k]>=0)){
    pending.reject(Error('속도 확인 실패: '+(p.error??'잘못된 native 응답')));return;
   }
   this.pending=undefined;this.rate=p.rate;this.verified=true;this.last={...p};this.record({kind:'ack',...p});this.changed();pending.resolve(p);

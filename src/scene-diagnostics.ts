@@ -6,7 +6,7 @@ const counter=(v:any)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0?v:null
 export function sceneCounters(d:any){const b=d?.bgmCommands;return {int66:counter(b?.int66Calls),int69:counter(b?.int69Calls),rawReads:counter(b?.rawReads),rawBytes:counter(d?.music?.bytes),recorded:counter(b?.totalRecorded),...Object.fromEntries(Object.entries(b?.commands??{}).map(([k,v])=>['int66_'+k,counter(v)]))};}
 export function counterDelta(now:Record<string,number|null>,previous?:Record<string,number|null>){return Object.fromEntries(Object.entries(now).map(([k,v])=>[k,v===null||previous?.[k]==null||v<previous[k]! ?null:v-previous[k]!]));}
 // Inputs come only from the engine's validated metadata reports, never files or PCM.
-function select(d:any){return structuredClone(Object.fromEntries(['artifact','identity','audioState','integratedSpeed','audioOutput','audioStartup','bgmCommands','music','musicObservation','runtimeErrors','resolution','frames','paused'].filter(k=>d?.[k]!==undefined).map(k=>[k,d[k]])));}
+function select(d:any){return structuredClone(Object.fromEntries(['artifact','identity','audioState','integratedSpeed','audioSupply','audioOutput','audioStartup','bgmCommands','music','musicObservation','runtimeErrors','resolution','frames','paused'].filter(k=>d?.[k]!==undefined).map(k=>[k,d[k]])));}
 export class SceneSession{
  readonly id=crypto.randomUUID();readonly startedAt=new Date().toISOString();readonly started=performance.now();
  readonly snapshots:any[]=[];private first:any[]=[];private tail:any[]=[];private lastSequence=0;private previous?:Record<string,number|null>;

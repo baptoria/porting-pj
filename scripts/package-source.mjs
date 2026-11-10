@@ -26,7 +26,8 @@ for (const name of [
   "public/licenses/NOTICE.html",
 ])
   await add(name);
-for(const name of await readdir('public'))if(/^dos-worker-(?:common-)?phase9-(?:[3467]|5b|8c|8d|8f|8h)-[a-f0-9]{16}\.js$/.test(name)||/^phase9-(?:[3467]|5b|8c|8d|8f|8h)-worker\.json$/.test(name))await add('public/'+name);
+for(const name of await readdir('public'))if(/^dos-worker-(?:common-)?phase9-(?:[3467]|5b|8c|8d|8f|8h|8i)-[a-f0-9]{16}\.js$/.test(name)||/^phase9-(?:[3467]|5b|8c|8d|8f|8h|8i)-worker\.json$/.test(name))await add('public/'+name);
+for(const name of await readdir('public'))if(/^audio-worklet-phase9-8i-[a-f0-9]{16}\.js$/.test(name))await add('public/'+name);
 await mkdir("public/sources", { recursive: true });
 await writeFile(
   "public/sources/ed4-mobile-source.zip",

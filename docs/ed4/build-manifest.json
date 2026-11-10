@@ -2,11 +2,11 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8h-20261110013518083-78b5b0b9",
-    "commit": "0879a8287b69",
+    "id": "9-8i-20261110031007430-9353bf84",
+    "commit": "f3489ae3affe",
     "dirty": true,
-    "builtAt": "2026-11-10T01:35:18.083Z",
-    "revision": "phase9-8h-1"
+    "builtAt": "2026-11-10T03:10:07.430Z",
+    "revision": "phase9-8i-1"
   },
   "files": [
     {
@@ -15,19 +15,19 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-CmB-gsaL.js",
+      "path": "assets/launcher-update-CXr1-xVd.js",
       "bytes": 6797,
-      "sha256": "1ccc4888015c5ae402cba21062bd4f221d3ad51a27f28060970a4a38dc2c6eaa"
-    },
-    {
-      "path": "assets/main-BpnHIwAv.js",
-      "bytes": 201253,
-      "sha256": "ac90d7ec83423fa390c5ad31f8d637e4aeb625ad9c16fbb560430291a07fc657"
+      "sha256": "be8d92469075ddcffa71cea00679d4a0538519c522dff6301dc6a582f4f50516"
     },
     {
       "path": "assets/main-H0Y8MSOQ.css",
       "bytes": 19908,
       "sha256": "c2c10e546db2316574f04f0a331dd1b453cca5690b0a075c377a6a2feebad858"
+    },
+    {
+      "path": "assets/main-cLrnivHF.js",
+      "bytes": 211019,
+      "sha256": "dcecc89cd65acf1fd46a4b3b1b7a386204cab51235d06d89b5de7a07e50f39b6"
     },
     {
       "path": "assets/runtime-worker-qN4wlFPP.js",
@@ -40,14 +40,19 @@
       "sha256": "820e85a26189de71a18efbeb330f577557ace91748e6fbfb5d597726ec8d32b3"
     },
     {
-      "path": "assets/update-Bldm57lL.js",
+      "path": "assets/update-L-SOOymc.js",
       "bytes": 103,
-      "sha256": "988601fad0447634567abbcc80c9ae2dda3767bd3e479f5ff2c79e29ff65db67"
+      "sha256": "2a84a9afff151b38e175d5481950ab5b4616accc90fb987d919f64193907d047"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
       "bytes": 8950,
       "sha256": "626917637c4e26b7281f1292cb8117beb2991d9a577e49264e980ec7973df6f7"
+    },
+    {
+      "path": "audio-worklet-phase9-8i-31bb6b4237d030a5.js",
+      "bytes": 5334,
+      "sha256": "31bb6b4237d030a599b5e47f4a28b4fb04978da55a829f9d9196ae269c1afa07"
     },
     {
       "path": "dos-worker-common-phase9-3-735ee752056417c8.js",
@@ -93,6 +98,11 @@
       "path": "dos-worker-common-phase9-8h-9fb9a330efa3730f.js",
       "bytes": 13001,
       "sha256": "9fb9a330efa3730f683a2ee774cd74f1f8576e86fb5f0be451156e7c68503d8e"
+    },
+    {
+      "path": "dos-worker-common-phase9-8i-25b4e39c37e65a1a.js",
+      "bytes": 17391,
+      "sha256": "25b4e39c37e65a1aa794153640558344496f765b95d80fd405421e863f0b2894"
     },
     {
       "path": "dos-worker-phase9-2.js",
@@ -170,6 +180,11 @@
       "sha256": "d35f9ac09899b33c4be2b65b745ad187732f74f3c490c22d7a0694c20b2ce3c2"
     },
     {
+      "path": "dos-worker-phase9-8i-1c0932991575ab36.js",
+      "bytes": 689,
+      "sha256": "1c0932991575ab366701fbd64c9fe1fb251cb7ace8af0d891a3f4320dd74e4e9"
+    },
+    {
       "path": "dos-worker.js",
       "bytes": 8307,
       "sha256": "735ee752056417c87beb4c45ee9b23a38754c168026b947bd3d6446144fb03d7"
@@ -192,12 +207,12 @@
     {
       "path": "index.html",
       "bytes": 855,
-      "sha256": "b22ecbcb5324ef2031210ed97157bd2673f5662e967b97205cafd5042992b2cd"
+      "sha256": "6c2b74ca456722cac438510e971abd8b86a369750a66d394e4c901e84a6d6535"
     },
     {
       "path": "licenses/NOTICE.html",
-      "bytes": 4672,
-      "sha256": "ac4e9c5727c5d2df7c21f10c4dcc6c75f41600e2611e0f9f46ab44e388645c39"
+      "bytes": 4939,
+      "sha256": "065ba8f872dc5c0e8d10b69317e2a85fe1efe8268fd686abb463d98ba4faf2f6"
     },
     {
       "path": "licenses/emulators-GPL-2.0.txt",
@@ -265,6 +280,11 @@
       "sha256": "d8db8c7ee51b007575a97d4d3a17ff4d98b75c780eb713267b6a9c78a94f25e0"
     },
     {
+      "path": "phase9-8i-worker.json",
+      "bytes": 321,
+      "sha256": "ff5009c08935b5bf07c967d87c288b1f22430aa24d8e837f790d211ad84cd6f9"
+    },
+    {
       "path": "test-program.zip",
       "bytes": 1042,
       "sha256": "9aa2e45e4d44f2673e61c72f5541a424c23573f36e7cd56ffd2a3d8ca199cb71"
@@ -272,7 +292,7 @@
     {
       "path": "update.html",
       "bytes": 643,
-      "sha256": "9610ff3af1fd0646a5ae6fc33315f1ecbdd4819cd0e3047f7c7f038d0e64e143"
+      "sha256": "69c11b8ba7b44fe7ce501d10248449b31ba59f4d9cec1daa638a6db99645855f"
     },
     {
       "path": "vendor/emulators.js",
@@ -595,6 +615,41 @@
       "sha256": "8f799f50bb6ade563124922057195d3bc013e269f40dd7c585307125b780cc14"
     },
     {
+      "path": "vendor/experimental/phase9-8i/DOSBOX-COPYING",
+      "bytes": 17995,
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374"
+    },
+    {
+      "path": "vendor/experimental/phase9-8i/LICENSE",
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "path": "vendor/experimental/phase9-8i/SOURCE.txt",
+      "bytes": 246,
+      "sha256": "6de05da3f974a7b6af582c2fce0d6b457e43dfd121cb9a64319179fc9074a651"
+    },
+    {
+      "path": "vendor/experimental/phase9-8i/manifest.json",
+      "bytes": 1538,
+      "sha256": "e22241d27a974ca83eb1c62d24489ce619b65127364016c4c6a3b8733361b0b1"
+    },
+    {
+      "path": "vendor/experimental/phase9-8i/wdosbox.js",
+      "bytes": 127462,
+      "sha256": "e27088046b8e134352e22c364d8809cedc23140d6d45bb96a3953bf916fa71b4"
+    },
+    {
+      "path": "vendor/experimental/phase9-8i/wdosbox.js.symbols",
+      "bytes": 239966,
+      "sha256": "f58561be9575349c734a60f492d27dc7356016bf0802cbaac27b9cbfa87d82e0"
+    },
+    {
+      "path": "vendor/experimental/phase9-8i/wdosbox.wasm",
+      "bytes": 1466849,
+      "sha256": "a10cbc965e710fda680df68ce69f74bea2f4343ac64d1efdaec8d312c517c873"
+    },
+    {
       "path": "vendor/wdosbox.js",
       "bytes": 125962,
       "sha256": "80c871923d6265625a4ca3ee9799c2a856eeae6a88fc535a100fd5d98c004abc"
@@ -615,5 +670,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "df54955d0ee6d971526d28e4812cf44ae6210085013c8f0c41b5f088b11090f0"
+  "swSha256": "ff91c2421757c8d12fd4457405c298eb89242dffb3adb6eeba2f55a31eaee742"
 }

@@ -1,0 +1,3 @@
+// GPL-2.0-only; immutable diagnostic bootstrap.
+self.ed4DiagnosticEngine='phase9-8i';
+try{importScripts('./dos-worker-common-phase9-8i-25b4e39c37e65a1a.js');if(self.ed4CommonWorkerRevision!=='phase9-8i-common-1')throw Error('BGM Worker revision mismatch');self.postMessage({name:'ed4-worker-bootstrap',props:{revision:'phase9-8i-common-1',common:'dos-worker-common-phase9-8i-25b4e39c37e65a1a.js',sha256:'25b4e39c37e65a1aa794153640558344496f765b95d80fd405421e863f0b2894'}});}catch(e){self.postMessage({name:'ed4-runtime-error',props:{source:'worker-bootstrap',stage:'import-common-worker',message:'Phase9-8I Worker mismatch/load failure: '+String(e.message).slice(0,300)}});self.close();}

@@ -1,0 +1,45 @@
+{
+  "id": "phase9-8i",
+  "emulators": "0.73.8",
+  "emscripten": "3.1.21",
+  "files": {
+    "wdosbox.js": {
+      "sha256": "e27088046b8e134352e22c364d8809cedc23140d6d45bb96a3953bf916fa71b4",
+      "bytes": 127462
+    },
+    "wdosbox.wasm": {
+      "sha256": "a10cbc965e710fda680df68ce69f74bea2f4343ac64d1efdaec8d312c517c873",
+      "bytes": 1466849
+    },
+    "wdosbox.js.symbols": {
+      "sha256": "f58561be9575349c734a60f492d27dc7356016bf0802cbaac27b9cbfa87d82e0",
+      "bytes": 239966
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    "DOSBOX-COPYING": {
+      "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374",
+      "bytes": 17995
+    },
+    "SOURCE.txt": {
+      "sha256": "6de05da3f974a7b6af582c2fce0d6b457e43dfd121cb9a64319179fc9074a651",
+      "bytes": 246
+    }
+  },
+  "changes": {
+    "baseSourceSha256": "095e1a1c0c2e957689fd06abbd47516fe77c11c3fc14c54103089aec357ebf42",
+    "changes": [
+      {
+        "path": "native/dosbox/src/dosbox.cpp",
+        "before": "b04dddddab530e75eb95d44fd8100806ed3bc5f60586ccad425257902cc390e6",
+        "after": "a1ea229ab13181ae2396b50b95a5b3d7e2f065dfe9fa6ed240a5e3c4d800b77d"
+      }
+    ],
+    "timerSource": "Unchanged H tick multiplier",
+    "audioClock": "Unchanged H PIC_Ticks; host worklet experiment",
+    "cycles": "Explicit temporary override on 2x, restore on 1x"
+  },
+  "sourceZipSha256": "3ec48eef68f528df8aeb143691c01dce5e16bc03f38a8bfe16004d0f4bfe42bb"
+}

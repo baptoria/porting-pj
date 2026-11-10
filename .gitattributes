@@ -64,3 +64,7 @@
 
 /public/dos-worker-*phase9-8h*.js -text
 /scripts/phase9-8h-speed-worker.js -text
+
+**/dos-worker*phase9-8i*.js -text
+**/audio-worklet-phase9-8i-*.js -text
+scripts/phase9-8i-speed-worker.js -text
