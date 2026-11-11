@@ -4,7 +4,7 @@ import { test, expect, type Page } from "@playwright/test";
 async function snapshot(page: Page) {
   return page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((r) => {
-      const q = indexedDB.open("ed4-mobile-dev-v1");
+      const q = indexedDB.open(document.body.dataset.buildAudience==='developer'?'ed4-mobile-dev-v1':'ed4-mobile-v1');
       q.onsuccess = () => r(q.result);
     });
     const out: any = {};
@@ -23,7 +23,7 @@ async function snapshot(page: Page) {
     db.close();
     const root = await (
       await navigator.storage.getDirectory()
-    ).getDirectoryHandle("ed4-dev-music");
+    ).getDirectoryHandle(document.body.dataset.buildAudience==='developer'?'ed4-dev-music':'ed4-music');
     out.music = [];
     for await (const k of (root as any).keys()) out.music.push(k);
     out.music.sort();
@@ -31,7 +31,7 @@ async function snapshot(page: Page) {
   });
 }
 async function seed(page: Page) {
-  await page.goto("/porting-pj/ed4-dev/");
+  await page.goto(process.env.ED4_RELEASE_PUBLIC ? "/porting-pj/ed4/" : "/porting-pj/ed4-dev/");
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
   await page.evaluate(async (program) => {
     const open = (name: string) =>
@@ -39,7 +39,7 @@ async function seed(page: Page) {
         const q = indexedDB.open(name);
         q.onsuccess = () => r(q.result);
       });
-    const db = await open("ed4-mobile-dev-v1"),
+    const db = await open(document.body.dataset.buildAudience==='developer'?'ed4-mobile-dev-v1':'ed4-mobile-v1'),
       tx = db.transaction(
         ["profiles", "archives", "catalog", "saves", "recovery"],
         "readwrite",
@@ -100,7 +100,7 @@ async function seed(page: Page) {
       tx.onerror = () => j(tx.error);
     });
     db.close();
-    const music = await open("ed4-music-dev-v1"),
+    const music = await open(document.body.dataset.buildAudience==='developer'?'ed4-music-dev-v1':'ed4-music-v1'),
       mt = music.transaction("packs", "readwrite");
     for (const id of ["base", "patch", "own"])
       mt.objectStore("packs").put({
@@ -116,7 +116,7 @@ async function seed(page: Page) {
     music.close();
     const root = await (
       await navigator.storage.getDirectory()
-    ).getDirectoryHandle("ed4-dev-music", { create: true });
+    ).getDirectoryHandle(document.body.dataset.buildAudience==='developer'?'ed4-dev-music':'ed4-music', { create: true });
     for (const id of ["base", "patch", "own"]) {
       const d = await root.getDirectoryHandle(id, { create: true }),
         f = await d.getFileHandle("sample", { create: true }),
@@ -129,6 +129,7 @@ async function seed(page: Page) {
   await expect(page.locator("[data-manage-profile]")).toHaveCount(3);
 }
 async function manage(page: Page, id: string) {
+  if(!await page.locator(`[data-manage-profile="${id}"]`).isVisible())await page.locator("#choose-profile").click();
   await page.locator(`[data-manage-profile="${id}"]`).click();
   await expect(page.locator("#profile-manage")).toBeVisible();
 }
@@ -171,11 +172,13 @@ test("HF2 A/B/C shared references, retained save restore, same-name profiles, mo
   await manage(page, "A");
   await page.locator("#manage-delete").click();
   await page.locator("#delete-confirm").click();
+  await expect(page.locator("#profile-delete")).not.toBeVisible();
   let after = await snapshot(page);
   expect(after.saves).toEqual(before.saves);
   expect(after.music).toEqual(before.music);
   expect(after.retiredProfiles[0].id).toBe("A");
   for(const id of ['B','C']){
+    if(!await page.locator(`[data-profile="${id}"]`).isVisible())await page.locator("#choose-profile").click();
     await page.locator(`[data-profile="${id}"]`).click();await page.locator('#play').click();await expect(page.locator('#logs')).toContainText('ED4 TEST READY');await stop(page);
   }
   await storage(page);
@@ -192,6 +195,7 @@ test("HF2 A/B/C shared references, retained save restore, same-name profiles, mo
     "공유 보호: 게임 1개",
   );
   await page.locator("#delete-confirm").click();
+  await expect(page.locator("#profile-delete")).not.toBeVisible();
   expect((await snapshot(page)).archives.map((a: any) => a.id)).toContain(
     "base",
   );
@@ -206,6 +210,7 @@ test("HF2 A/B/C shared references, retained save restore, same-name profiles, mo
   expect(download.suggestedFilename()).toBe("ed4-save-C.zip");
   await page.locator("#delete-phrase").fill("삭제");
   await page.locator("#delete-confirm").click();
+  await expect(page.locator("#profile-delete")).not.toBeVisible();
   after = await snapshot(page);
   expect(after.music).toEqual(["base", "patch"]);
   expect(after.saves.map((s: any) => s.profileId)).toEqual(["A", "B"]);
@@ -238,6 +243,7 @@ test("HF2 OPFS interrupted cleanup persists across reload and is explicitly retr
   await page.locator("#manage-delete").click();
   await page.locator("#delete-scope").selectOption("unused");
   await page.locator("#delete-confirm").click();
+  await expect(page.locator("#profile-delete")).not.toBeVisible();
   await expect(page.locator("#profile-delete")).not.toBeVisible();
   const before = await snapshot(page);
   expect(before.cleanup.map((j: any) => j.id)).toEqual(["own"]);

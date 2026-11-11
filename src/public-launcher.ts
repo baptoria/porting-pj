@@ -9,7 +9,7 @@ export function installPublicLauncher(){
  for(const s of ['.trial-launch','#open-import','#demo','.phase2-card','.diagnostics',
  '#boot-dialog','#import-dialog','#run-diagnostics','#run-performance','#scene-panel',
  '#trace-status','#raw-preview','#raw-stop'])hide(q(s));
- q('#speed-toggle').hidden=true;q('#speed-limit').hidden=true;
+ q('#speed-limit').hidden=true;
  for(const s of ['#cycles','#memory','#sound','#prelude','#preset','#required-version'])hide(q(s).closest('label'));
  // Keep CPU/prelude values. Versioned ordinary preference is applied in main.
  for(const el of q('#settings-form').querySelectorAll<HTMLElement>(':scope > .hint'))hide(el);
@@ -18,6 +18,7 @@ export function installPublicLauncher(){
  q('#advanced-settings > summary').textContent='게임 관리 · 음악 · 백업 · 업데이트';
  q('#advanced-content > .hint').textContent='게임 안에서 저장한 뒤 실행기를 종료하세요. 중요한 저장은 백업 파일로 따로 보관해 주세요.';
  q('#ingame-advanced').textContent='더 보기 ↓';
+ q('#play-menu-basic').prepend(q('#fullscreen'));
  q('#play-menu-advanced h3').textContent='화면 · 백업';
  q('#status').textContent='게임 폴더를 한 번 등록하면 다음부터 바로 시작할 수 있습니다.';
  q('#mode-manage').textContent='모드 관리';

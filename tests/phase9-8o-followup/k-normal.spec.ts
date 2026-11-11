@@ -32,7 +32,7 @@ test('ordinary K saves at 2x, native ACK switches, deletions, backup restore and
  saved=await state(page);expect(saved.saves[0].tombstones).toContain('TEST.SAV');await run(page);await key(page,'l','NO SAVE');await stop(page);
  await page.locator('#launcher-advanced').click();await page.locator('#restore-file').setInputFiles({name:'backup.zip',mimeType:'application/zip',buffer:zip});await expect(page.locator('#status')).toContainText('백업을 복원');
  expect((await state(page)).recovery.some((p:any)=>p.kind==='before-restore')).toBe(true);
- await select(page,'phase9-7');await run(page);await expect(page.locator('#speed-toggle')).toBeHidden();await key(page,'l','ED4_SAVE_OK');await stop(page);
+ await select(page,'phase9-7');await run(page);await expect(page.locator('#speed-toggle')).toBeVisible();await expect(page.locator('#speed-toggle')).toBeDisabled();await key(page,'l','ED4_SAVE_OK');await stop(page);
  await select(page,'phase9-8k');await run(page);await key(page,'l','ED4_SAVE_OK');await stop(page);expect((await state(page)).archives).toEqual(original.archives);
  const baseSave=(await state(page)).saves[0];
  await page.locator('#choose-profile').click();await page.locator('#mode-manage').click();await page.locator('#mode-patch').click();

@@ -20,7 +20,7 @@ export function installPlayUi(area:HTMLElement){
  let settings:PlayUi={...DEFAULT_PLAY_UI};try{settings=normalizePlayUi(JSON.parse(localStorage.getItem(PLAY_UI_KEY)??'null'));}catch{}
  const controls=area.querySelector<HTMLElement>('#touch-controls')!;
  area.querySelector('.screen')!.append(controls);
- area.insertAdjacentHTML('beforeend',`<div id="game-tools"><button id="player-menu" aria-label="플레이 메뉴" aria-expanded="false">☰</button><button id="speed-toggle" disabled aria-pressed="false" aria-label="2× 배속 미지원 · 현재 1×" title="${SPEED_CAPABILITY.reason}">2×</button></div>`);
+ area.querySelector('.screen')!.insertAdjacentHTML('beforeend',`<div id="game-tools"><button id="player-menu" aria-label="플레이 메뉴" aria-expanded="false">☰</button><button id="speed-toggle" disabled aria-pressed="false" aria-label="2× 배속 미지원 · 현재 1×" title="${SPEED_CAPABILITY.reason}">1× / 2×</button></div>`);
  const toolbar=area.querySelector<HTMLElement>('.player-toolbar')!;
  toolbar.insertAdjacentHTML('beforeend','<button id="play-ui-open">화면·조작 설정</button><button id="immersive-close">몰입 화면 닫기</button><p id="speed-limit">'+SPEED_CAPABILITY.reason+'</p>');
  // Keep the existing preference keys: size/position now describe the four-button group.

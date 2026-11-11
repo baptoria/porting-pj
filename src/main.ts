@@ -1,4 +1,5 @@
 import { installProfileManagement } from './profile-management-ui';
+import { supportReceipt } from './public-support';
 import { deleteUnusedMusic } from './profile-management';
 import {dookyDecisionReport,observeDookyLaunch} from './dooky-diagnostics';
 import {storageKey,APP_STORAGE} from './app-storage';
@@ -423,6 +424,7 @@ on("#export-diagnostics", async () => {
 
 function status(message: string, error = false) {
   if (error) lastError = message;
+  if(error&&!DEVELOPER_TOOLS){const b=document.getElementById('public-error-report');if(b)b.hidden=false;}
   $("#session-notice").textContent = message;
   $("#session-notice").classList.toggle("error", error);
   $("#status").textContent = message;
@@ -1674,9 +1676,10 @@ const playUiSnapshot=installPlayUi($("#play-area"));
 function renderSpeed(){
  const s=engine?.speedState(),button=$<HTMLButtonElement>('#speed-toggle');if(!button)return;
  const enabled=!!s?.supported&&s.verified&&!s.pending&&!s.fault&&!paused;
- if(!DEVELOPER_TOOLS){button.hidden=!s?.supported;$('#speed-limit').hidden=!s?.supported;}
+ button.hidden=false;$('#speed-limit').hidden=!engine;
  button.dataset.capable=String(!!s?.supported);button.disabled=!enabled;button.setAttribute('aria-pressed',String(s?.verified&&s.rate===2));
- const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속${diagnosticRun?' · 저장 안 함':''}`)):'현재 일반 속도 1×입니다. 전체 배속은 게임 설정에서 선택할 수 있습니다.';
+ button.textContent=s?.verified&&s.rate===2?'2× → 1×':'1× → 2×';
+ const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속${diagnosticRun?' · 저장 안 함':''}`)):'현재 실행 방식은 배속을 지원하지 않습니다. 일반 속도 1×로 실행합니다.';
  button.title=text;button.setAttribute('aria-label','2× 전환 · '+text);$('#speed-limit').textContent=text;if(s?.fault)status(s.fault,true);
 }
 on('#speed-toggle',async()=>{if(!DEVELOPER_TOOLS&&(!engine||!engine.speedState().supported||engine.diagnostics().artifact.id!=='phase9-8k'))requireDeveloperTools();if(!engine)return;await engine.setSpeed(engine.speedState().rate===2?1:2);renderSpeed();});
@@ -1686,5 +1689,9 @@ const scenePanel=installScenePanel($('.player-toolbar'),()=>engine,download);
 for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelectElement>('#'+id);field.disabled=true;field.title='기존 설정은 보존됩니다. ED4 오버레이는 Enter/ESC 고정입니다.';}
 
 installLauncherLayout();
-if(!DEVELOPER_TOOLS)installPublicLauncher();
+if(!DEVELOPER_TOOLS){
+ installPublicLauncher();
+ $('#status').insertAdjacentHTML('afterend','<button id="public-error-report" hidden>오류 정보 저장</button>');
+ $('#public-error-report').onclick=()=>{if(lastError)download(new TextEncoder().encode(JSON.stringify(supportReceipt(lastError,$('#run-state').textContent??'',engine?.diagnostics().artifact),null,2)),'ed4-error.json');};
+}
 else {document.body.dataset.buildAudience="developer";}

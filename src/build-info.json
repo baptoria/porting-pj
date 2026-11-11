@@ -1,8 +1,8 @@
 {
-  "id": "9-8q-hf2-dev-20261111024136587-3f9cb680",
-  "commit": "0885ee268d99",
+  "id": "9-8r-public-20261111032827900-c5914e1d",
+  "commit": "f56608e2f0cb",
   "dirty": true,
-  "builtAt": "2026-11-11T02:41:36.587Z",
-  "revision": "phase9-8q-hf2-auto-boot-1",
-  "audience": "developer"
+  "builtAt": "2026-11-11T03:28:27.900Z",
+  "revision": "phase9-8r-auto-boot-1",
+  "audience": "public"
 }

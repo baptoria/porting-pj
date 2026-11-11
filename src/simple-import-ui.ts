@@ -141,13 +141,13 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
     const root=find<HTMLSelectElement>('simple-folder-root').value;
     const patch=(DEVELOPER_TOOLS?find<HTMLSelectElement>('simple-kind').value:publicKind)==='patch';
     controller=new AbortController();
-    const inspected=DEVELOPER_TOOLS&&!patch?await inspectDookyFolder(pendingFolder,controller.signal,root):undefined;
+    const inspected=!patch?await inspectDookyFolder(pendingFolder,controller.signal,root):undefined;
     controller.signal.throwIfAborted();
     if(inspected)rememberDookyAttempt(inspected.report);
     const selection = folderMusicPlan(pendingFolder, root, patch);
     if(selection.needsRootChoice)throw new FolderSelectionError('게임 폴더 하나를 선택해 주세요.');
     pendingFolder = undefined; find('simple-folder-choice').hidden = true;
-    await prepare(selection.files, selection.name, selection.iso, [...selection.notes,...(inspected&&!inspected.plan?[dookyAdvice(inspected.report)]:[])], selection.startup,inspected?.plan,inspected?.report);
+    await prepare(selection.files, selection.name, selection.iso, [...selection.notes,...(DEVELOPER_TOOLS&&inspected&&!inspected.plan?[dookyAdvice(inspected.report)]:[])], selection.startup,inspected?.plan,inspected?.report);
   }));
   for (const selector of sourceIds) find<HTMLInputElement>(selector).onchange = () => void options.run(()=>guarded(async()=>{
     options.idle(); await discard();
@@ -158,7 +158,7 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
       const kind = DEVELOPER_TOOLS?find<HTMLSelectElement>('simple-kind').value:publicKind;
       const scan = scanGameFolder(files, kind === 'patch');
       controller=new AbortController();
-      const inspected=DEVELOPER_TOOLS&&kind!=='patch'?await inspectDookyFolder(scan,controller.signal):undefined;
+      const inspected=kind!=='patch'?await inspectDookyFolder(scan,controller.signal):undefined;
       if(inspected)rememberDookyAttempt(inspected.report);
       const automatic=inspected?.plan;
       controller.signal.throwIfAborted();
@@ -173,7 +173,7 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
         message('게임 폴더를 찾았습니다. 함께 등록할 파일 범위를 확인해 주세요.');
         return;
       }
-      await prepare(selected.files, selected.name, selected.iso, [...selected.notes,...(inspected&&!automatic?[dookyAdvice(inspected.report)]:[])], selected.startup,automatic,inspected?.report);
+      await prepare(selected.files, selected.name, selected.iso, [...selected.notes,...(DEVELOPER_TOOLS&&inspected&&!automatic?[dookyAdvice(inspected.report)]:[])], selected.startup,automatic,inspected?.report);
     } else if (DEVELOPER_TOOLS) await prepare(files[0], files[0].name);
   }));
   async function prepare(input: SourceInput[] | File, name: string, iso?:SourceInput, notes:string[]=[], startup?:SourceInput, automatic?:DookyAutoPlan, decision?:DookyDecision) {

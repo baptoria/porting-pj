@@ -1,0 +1,23 @@
+import {test,expect,Page} from '@playwright/test';
+import {readFile,writeFile} from 'node:fs/promises';
+import {testProgram} from '../../scripts/test-program.mjs';
+import {rawTone} from '../../scripts/iso-fixture.mjs';
+import {folderFixture} from '../folder-fixture';
+import {stop} from '../phase9-8i/helpers';
+async function state(p:Page){return p.evaluate(async()=>{
+ const db=await new Promise<IDBDatabase>(r=>{const q=indexedDB.open('ed4-mobile-v1');q.onsuccess=()=>r(q.result);});const out:any={};for(const s of ['profiles','archives','saves','recovery'])out[s]=await new Promise(r=>{const q=db.transaction(s).objectStore(s).getAll();q.onsuccess=()=>r(q.result);});db.close();
+ const root=await (await navigator.storage.getDirectory()).getDirectoryHandle('ed4-music');out.raw={};for await(const [key,dir] of (root as any).entries())for await(const [name,handle] of dir.entries()){const f=await handle.getFile();out.raw[key+'/'+name]=Array.from(new Uint8Array(await f.arrayBuffer()));}
+ return JSON.parse(JSON.stringify(out,(_,v)=>v instanceof Uint8Array?Array.from(v):v));
+});}
+async function update(p:Page,id:string){await p.locator('#launcher-advanced').click();await p.locator('#launcher-version').evaluate(e=>(e as HTMLDetailsElement).open=true);await p.locator('#update-check').click();await expect(p.locator('#update-apply')).toBeEnabled({timeout:60000});await p.locator('#update-apply').click();await expect(p.locator('#launcher-build')).toContainText(id,{timeout:60000});await expect(p.locator('#offline')).toHaveText('오프라인 준비 완료');}
+test('byte-exact old public v3 -> R v4 -> compatible rollback, no data migration loss',async({page,request,context},info)=>{
+ page.on('dialog',d=>void d.accept());await request.post('/__release?version=legacy');await page.goto('/porting-pj/ed4/');await expect(page.locator('#offline')).toHaveText('오프라인 준비 완료');
+ await page.locator('#simple-import').click();await page.locator('#simple-folder').setInputFiles(await folderFixture({'GAME.BAT':new TextEncoder().encode('TEST.COM\r\n'),'TEST.COM':testProgram(['EFFECT\\A.RAW'],false),'EFFECT/A.RAW':rawTone()},'old-public'));await expect(page.locator('#simple-import-dialog')).not.toBeVisible();
+ await page.locator('#play').click();await expect(page.locator('#logs')).toContainText('ED4 TEST READY');await page.locator('#canvas').focus();await page.keyboard.press('s');await expect(page.locator('#logs')).toContainText('SAVE WRITTEN');await stop(page);
+ await page.evaluate(async()=>{localStorage.setItem('release-test-control','preserved');const db=await new Promise<IDBDatabase>(r=>{const q=indexedDB.open('ed4-mobile-v1');q.onsuccess=()=>r(q.result);});if(db.version!==3)throw Error('Legacy must start at v3');const tx=db.transaction(['saves','recovery'],'readwrite');const get=tx.objectStore('saves').getAll();get.onsuccess=()=>{const save=get.result[0];tx.objectStore('recovery').put({id:'legacy-point',profileId:save.profileId,sessionId:'legacy',createdAt:1,kind:'before-restore',candidatePaths:[],save,note:'preserve'});};await new Promise<void>(r=>{tx.oncomplete=()=>r();});db.close();});
+ const before=await state(page),current=JSON.parse(await readFile('docs/ed4/build-manifest.json','utf8')).build.id,rollback=JSON.parse(await readFile('artifacts/phase9-8r/rollback-compatible-v4/build-manifest.json','utf8')).build.id;
+ await request.post('/__release?version=current');await update(page,current);expect(await state(page)).toEqual(before);expect(await page.evaluate(()=>localStorage.getItem('release-test-control'))).toBe('preserved');
+ await page.locator('#play').click();await expect(page.locator('#logs')).toContainText('ED4 TEST READY');await page.locator('#speed-toggle').click();await expect(page.locator('#speed-toggle')).toHaveAttribute('aria-pressed','true');await page.locator('#canvas').focus();await page.keyboard.press('l');await expect(page.locator('#logs')).toContainText('ED4_SAVE_OK');await stop(page);
+ const after=await state(page);await request.post('/__release?version=rollback');await update(page,rollback);expect(await state(page)).toEqual(after);await context.setOffline(true);await page.reload();await page.locator('#play').click();await expect(page.locator('#logs')).toContainText('ED4 TEST READY');await page.locator('#canvas').focus();await page.keyboard.press('l');await expect(page.locator('#logs')).toContainText('ED4_SAVE_OK');await stop(page);
+ await writeFile(info.outputPath('migration-rollback.json'),JSON.stringify({current,rollback,profiles:after.profiles.length,recovery:after.recovery.length,rawFiles:Object.keys(after.raw).length,preserved:true},null,2));
+});

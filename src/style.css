@@ -1048,6 +1048,9 @@ body:not(.running) .player-toolbar { order:-1; border-bottom:1px solid var(--lin
 #play-area .action-pad button.pressed { opacity:var(--play-active-opacity,.65); background:#49647b; }
 #play-area .action-pad small[hidden], #menu-key[hidden] { display:none; }
 #game-tools { display:none; position:absolute; inset:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-right,0px) + 8px) auto calc(env(safe-area-inset-left,0px) + 8px); z-index:8; justify-content:space-between; pointer-events:none; }
+body.running #game-tools { display:flex; }
+#play-area:not(.immersive) #game-tools { justify-content:flex-end; gap:8px; }
+#play-area:not(.immersive) #game-tools #player-menu { display:none; }
 #game-tools button { pointer-events:auto; min-width:44px; min-height:40px; padding:6px 12px; background:#14202bd9; border:1px solid #ffffff70; color:#fff; }
 #speed-toggle:disabled { opacity:.45; cursor:not-allowed; }
 #speed-toggle[aria-pressed=true] { background:#aa781c; border-color:#ffd16d; }
