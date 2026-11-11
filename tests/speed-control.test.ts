@@ -2,6 +2,7 @@ import {it,expect,vi} from 'vitest';
 import {SpeedControl} from '../src/speed-control';
 import {SpeedAudio} from '../src/speed-audio';
 function reply(c:SpeedControl,m:any,rate=1){c.accept({session:c.session,id:m.props.id,engine:'phase9-8h',ok:true,rate,guestTicks:10,audioFrames:512,audioUnderflows:0,audioClamps:0});}
+it('a set request cannot be verified by a different valid native rate',async()=>{const messages:any[]=[],c=new SpeedControl(m=>messages.push(m),()=>{});const p=c.request('set',2);reply(c,messages[0],1);await expect(p).rejects.toThrow('속도 확인 실패');expect(c.verified).toBe(false);c.close();});
 it('only acknowledges this session/request and never permits duplicate requests',async()=>{
  const messages:any[]=[],c=new SpeedControl(m=>messages.push(m),()=>{});const p=c.request('set',2);
  expect(c.rate).toBe(1);expect(c.verified).toBe(false);await expect(c.request('set',1)).rejects.toThrow();

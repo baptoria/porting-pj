@@ -4,6 +4,7 @@ import {PHASE98I_WORKER} from './generated/phase9-8i-worker';
 import {WorkletAudio} from './worklet-audio';
 import {AudioSupply} from './audio-supply';
 import {SpeedControl,type Speed} from './speed-control';
+import {SpeedHealth} from './speed-health';
 import {SpeedAudio} from './speed-audio';
 import {PHASE98H_WORKER} from './generated/phase9-8h-worker';
 import { PHASE98F_WORKER } from './generated/phase9-8f-worker';
@@ -71,6 +72,9 @@ export class DosEngine implements Engine {
   private audioSupply=new AudioSupply();
   private speedTimer?:ReturnType<typeof setInterval>;
   private speedFault:string|null=null;
+  private speedHealth=new SpeedHealth();
+  private speedEpoch=0;
+  private recoveryFatal:string|null=null;
   private speedRecovery=false;
   private speedSwitching=false;
   private speedRecoveryCount=0;
@@ -81,16 +85,49 @@ export class DosEngine implements Engine {
   private stopping=false;
   private audioResuming=false;
   private audioResumeEpoch=0;
-  speedState(){return {supported:(this.artifact.id==='phase9-8h'||(this.artifact.id==='phase9-8i'||this.artifact.id==='phase9-8k'))&&this.engineReady&&!this.stopping,rate:this.speed?.rate??1,verified:this.speed?.verified??false,pending:!!this.speed?.busy||this.speedRecovery||this.audioResuming||this.speedSwitching,fault:this.speedFault,recoveries:this.speedRecoveryCount};}
+  speedState(){return {supported:(this.artifact.id==='phase9-8h'||(this.artifact.id==='phase9-8i'||this.artifact.id==='phase9-8k'))&&this.engineReady&&!this.stopping,rate:this.speed?.rate??1,verified:!!this.speed?.verified&&(!(this.speedAudio instanceof WorkletAudio)||this.speedAudio.confirmedSpeed===this.speed.rate),pending:(!!this.speed?.busy&&!(this.artifact.id==='phase9-8k'&&this.speed.operation==='status'))||this.speedRecovery||this.audioResuming||this.speedSwitching||(this.artifact.id==='phase9-8k'&&this.speedHealth.blocked),switching:this.speedSwitching,fault:this.speedFault,recoveries:this.speedRecoveryCount,phase:this.artifact.id==='phase9-8k'?this.speedHealth.phase:undefined,notice:this.artifact.id==='phase9-8k'?this.speedHealth.notice:undefined};}
   async setSpeed(rate:Speed){
     if(!this.speedState().supported||!this.speed||this.speedFault||this.paused)throw Error('Phase 9-8H/I/K 실행 중에만 속도를 바꿀 수 있습니다.');
-    if(this.speed.busy||this.speedRecovery||this.speedSwitching)throw Error('속도 응답 대기 중입니다.');
+    if((this.speed.busy&&!(this.artifact.id==='phase9-8k'&&this.speed.operation==='status'))||this.speedRecovery||this.speedSwitching||this.audioResuming||(this.artifact.id==='phase9-8k'&&this.speedHealth.blocked))throw Error('속도 응답 또는 출력 안정성 확인 대기 중입니다.');
+    const epoch=++this.speedEpoch,active=()=>epoch===this.speedEpoch&&!this.stopping;
     this.speedSwitching=true;this.speedChanged?.();
-    try{const ack=await this.speed.request('set',rate);if(ack.rate!==rate)throw Error('요청/확인 배속 불일치');await this.speedAudio?.setRate(ack.rate);this.speedAudio?.resetHealth();this.speedChanged?.();}
-    catch(e){await this.recoverSpeed(String(e));throw e;}
-    finally{this.speedSwitching=false;this.speedChanged?.();}
+    // A read-only poll must not swallow a pointer click by disabling mid-press.
+    // Cancel its ID after advancing the epoch; a late status ACK cannot verify this set.
+    if(this.artifact.id==='phase9-8k'&&this.speed.operation==='status')this.speed.cancel('사용자 배속 전환으로 이전 상태 관측 취소');
+    try{const ack=await this.speed.request('set',rate);if(!active())return;if(ack.rate!==rate)throw Error('요청/확인 배속 불일치');await this.speedAudio?.setRate(ack.rate);if(!active())return;this.speedAudio?.resetHealth();this.speedHealth.switched(rate,performance.now());this.speedChanged?.();}
+    catch(e){if(!active())return;this.speedSwitching=false;await this.recoverSpeed(String(e),true);throw e;}
+    finally{if(active()){this.speedSwitching=false;this.speedChanged?.();}}
+  }
+  private async recoverK(reason:string,fatal:boolean){
+    if(this.stopping||!this.speed||this.speedFault)return;
+    if(this.speedRecovery){if(fatal)this.recoveryFatal=reason;return;}
+    const epoch=++this.speedEpoch,active=()=>!this.stopping&&epoch===this.speedEpoch;
+    this.speedSwitching=false;this.speedRecovery=true;this.speedRecoveryCount++;this.recoveryFatal=fatal?reason:null;
+    this.speedHealth.recovering(reason,performance.now());this.speedChanged?.();
+    this.speed.cancel('1× 복구 요청으로 이전 속도 관측을 취소합니다.');
+    this.log(reason+' · native와 Worklet 1×를 확인합니다.');
+    try{
+      const ack=await this.speed.request('set',1);if(!active())return;
+      if(ack.rate!==1)throw Error('native 1× 복구 응답 불일치');
+      await this.speedAudio!.setRate(1);if(!active())return;
+      if(this.speedAudio!.report().rate!==1)throw Error('Worklet 1× 복구 응답 불일치');
+      // Retain the pre-existing queue drain, never discard or synthesize samples.
+      if(!this.recoveryFatal&&!this.paused&&this.speedAudio!.report().queueAheadMs>150){
+        this.ci?.pause();
+        try{await new Promise(r=>setTimeout(r,Math.min(1000,this.speedAudio!.report().queueAheadMs)));if(!active())return;if(!this.paused&&this.speedAudio!.report().queueAheadMs>150)throw Error('오디오 큐 복구 미확인');}
+        finally{if(active()&&!this.paused)this.ci?.resume();}
+      }
+      if(!active())return;
+      this.speedRecoveredAt=performance.now();this.recoveryOutput={status:'observing-after-both-1x',nativeRate:1,workletRate:1,nativeConfirmedAtMs:this.speedRecoveredAt};
+      if(this.recoveryFatal)this.speedHealth.fatal(this.recoveryFatal+' · 1×는 확인됐지만 배속 재시도는 제한합니다.',this.speedRecoveredAt);
+      else this.speedHealth.recovered(this.speedRecoveredAt,ack,this.speedAudio!.report());
+      if(this.speedHealth.phase==='fatal-fault')this.speedFault=this.speedHealth.notice;
+      this.log(this.speedHealth.notice);
+    }catch(e){if(active()){this.speedFault=reason+' · 1× 복구 확인 실패: '+String(e)+' · 배속 사용을 중단하세요.';this.speedHealth.fatal(this.speedFault,performance.now());this.speed.verified=false;this.log(this.speedFault);}}
+    finally{if(active()){this.speedRecovery=false;this.speedChanged?.();}}
   }
   private async recoverSpeed(reason:string,fatal=false){
+    if(this.artifact.id==='phase9-8k'){await this.recoverK(reason,fatal);return;}
     if(!this.speed||this.stopping||this.speedRecovery||this.speedFault)return;
     this.speedRecovery=true;this.speedRecoveryCount++;this.speedChanged?.();
     this.speed.cancel('1× 복구를 위해 이전 요청을 취소했습니다.');
@@ -112,7 +149,19 @@ export class DosEngine implements Engine {
     finally{this.speedRecovery=false;this.speedChanged?.();}
   }
   private async pollSpeed(){
-    if(!this.speed||this.speed.busy||this.speedRecovery||this.speedSwitching||this.stopping||this.paused)return;
+    if(!this.speed||this.speed.busy||this.speedRecovery||this.speedSwitching||this.stopping||this.paused||this.audioResuming)return;
+    if(this.artifact.id==='phase9-8k'){
+      if(this.speedFault)return;
+      const epoch=this.speedEpoch;
+      try{
+        const ack=await this.speed.request('status');if(this.stopping||epoch!==this.speedEpoch||this.paused)return;
+        const audio=this.speedAudio!.report(),result=this.speedHealth.observe(performance.now(),ack,audio,this.audio?.state??'closed');
+        this.recoveryOutput={...this.recoveryOutput,status:this.speedHealth.phase,nativeRate:ack.rate,workletRate:audio.rate,atMs:performance.now()};
+        if(result.action!=='none')await this.recoverSpeed(result.reason!,result.action==='fatal');
+        this.speedChanged?.();
+      }catch(e){if(!this.stopping&&epoch===this.speedEpoch)await this.recoverSpeed(String(e),true);}
+      return;
+    }
     if(this.speedFault){
       if(this.artifact.id==='phase9-8k'&&this.speedRecoveredAt&&performance.now()-this.speedRecoveredAt>2500){
         const report=this.speedAudio?.report();
@@ -177,7 +226,7 @@ export class DosEngine implements Engine {
       identity:{requestedEngine:this.artifact.id,actualEngine:this.engineReady?this.artifact.id:null,status:this.engineReady?'verified':'not-ready',basis:this.artifact.worker?'verified WASM and pinned Worker bootstrap, backend ready':'fixed stable backend; release hash pinned and shell manifest verified, not runtime WASM hash measurement'},
       ...this.metrics,
       audioSupply:(this.artifact.id==='phase9-8i'||this.artifact.id==='phase9-8k')?this.audioSupply.report():undefined,
-      integratedSpeed:this.speed?{...this.speedState(),control:this.speed.report(),audio:this.speedAudio?.report(),recoveryOutput:this.artifact.id==='phase9-8k'?this.recoveryOutput:undefined}:undefined,
+      integratedSpeed:this.speed?{...this.speedState(),control:this.speed.report(),audio:this.speedAudio?.report(),health:this.artifact.id==='phase9-8k'?this.speedHealth.report():undefined,recoveryOutput:this.artifact.id==='phase9-8k'?this.recoveryOutput:undefined}:undefined,
       performanceWindow:this.performanceWindow?.report(),
       averageFps:
         this.metrics.frames /
@@ -239,6 +288,7 @@ export class DosEngine implements Engine {
   async start(bundle: Uint8Array, music: MusicMount[] = [], experiment?:EngineSession) {
     validateEngineSession(experiment);
     this.stopping=false;this.speedFault=null;this.speedRecovery=false;this.speedSwitching=false;this.speedRecoveryCount=0;this.speedRecoveredAt=0;this.speedContinuedFault=false;this.audioSupply=new AudioSupply();
+    this.speedEpoch++;this.speedHealth=new SpeedHealth();this.recoveryFatal=null;
     this.startedAt = performance.now();
     this.audioStartup=new AudioStartup();
     this.audioStartup.state(0,this.audio?.state??"closed");
@@ -393,6 +443,7 @@ export class DosEngine implements Engine {
       this.speedAudio??=new SpeedAudio(this.audio,this.gain);
       this.speed=new SpeedControl(message=>worker.postMessage({...message,props:{...message.props,policy:'cyclesPolicy' in experiment?experiment.cyclesPolicy??0:0}}),()=>this.speedChanged?.(),3000,experiment.id);
       const ack=await this.speed.request('set',1);if(ack.rate!==1)throw Error('초기1× 확인 실패');
+      if(experiment.id==='phase9-8k')this.speedHealth.baseline(performance.now(),ack,this.speedAudio.report());
       this.speedTimer=setInterval(()=>void this.pollSpeed(),1000);
     }
     const context = this.canvas.getContext("2d", { alpha: false })!;
@@ -526,6 +577,7 @@ export class DosEngine implements Engine {
     this.pressed.clear();
   }
   async pause(value: boolean) {
+    if(this.artifact.id==='phase9-8k')this.speedHealth.paused(performance.now());
     if(value)this.performanceWindow?.invalidate('paused');
     this.releaseKeys();
     const epoch=++this.audioResumeEpoch;
@@ -596,6 +648,7 @@ export class DosEngine implements Engine {
     };
   }
   async stop() {
+    this.speedEpoch++;this.audioResumeEpoch++;this.speedSwitching=false;this.speedRecovery=false;
     this.stopping=true;this.speedChanged?.();
     clearInterval(this.speedTimer);this.speedTimer=undefined;
     if(this.speed&&!this.speed.closed){this.speed.cancel('진단 종료');try{const ack=await this.speed.request('set',1);await this.speedAudio?.setRate(ack.rate);}catch(e){this.log('종료 전1× 확인 실패: '+String(e)+' · Worker 폐기 후 다음 실행은 새1×로 시작합니다.');}}

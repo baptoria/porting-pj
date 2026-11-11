@@ -17,7 +17,7 @@ test('public errors offer a minimal receipt while developer diagnostics remain b
  await page.locator('#export-diagnostics').evaluate((e:HTMLButtonElement)=>e.click());
  await expect(page.locator('#status')).toContainText('개발 빌드');await expect(page.locator('#public-error-report')).toBeVisible();
  const pending=page.waitForEvent('download');await page.locator('#public-error-report').click();const receipt=JSON.parse(await readFile((await(await pending).path())!,'utf8'));
- expect(receipt.format).toBe('ed4-public-error');expect(receipt.buildId).toContain('9-8r-public');
+ expect(receipt.format).toBe('ed4-public-error');expect(receipt.buildId).toBe(JSON.parse(await readFile('docs/ed4/build-manifest.json','utf8')).build.id);
  expect(Object.keys(receipt).sort()).toEqual(['at','buildId','category','format','note','stage','version']);
  expect(await profiles(page)).toEqual([]);await expect(page.locator('#boot-dialog')).toBeHidden();
 });

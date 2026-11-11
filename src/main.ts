@@ -1678,8 +1678,9 @@ function renderSpeed(){
  const enabled=!!s?.supported&&s.verified&&!s.pending&&!s.fault&&!paused;
  button.hidden=false;$('#speed-limit').hidden=!engine;
  button.dataset.capable=String(!!s?.supported);button.disabled=!enabled;button.setAttribute('aria-pressed',String(s?.verified&&s.rate===2));
- button.textContent=s?.verified&&s.rate===2?'2× → 1×':'1× → 2×';
- const text=s?.supported?(s.fault??(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속${diagnosticRun?' · 저장 안 함':''}`)):'현재 실행 방식은 배속을 지원하지 않습니다. 일반 속도 1×로 실행합니다.';
+ button.textContent=s?.phase==='fatal-fault'?'배속 사용 불가':s?.phase==='recovering-1x'?'배속 복구 중':s?.phase==='stabilizing'?'1× · 안정화 중':s?.switching?'배속 확인 중':s?.phase==='ready-to-retry'?'2× 다시 켜기':s?.verified&&s.rate===2?'2× → 1×':'1× → 2×';
+ button.dataset.speedPhase=s?.phase??'unsupported';
+ const text=s?.supported?(s.fault??(s.notice||(s.pending?'배속 확인 중…':`전체 ${s.rate}× · 음악/효과음도 가속${diagnosticRun?' · 저장 안 함':''}`))):'현재 실행 방식은 배속을 지원하지 않습니다. 일반 속도 1×로 실행합니다.';
  button.title=text;button.setAttribute('aria-label','2× 전환 · '+text);$('#speed-limit').textContent=text;if(s?.fault)status(s.fault,true);
 }
 on('#speed-toggle',async()=>{if(!DEVELOPER_TOOLS&&(!engine||!engine.speedState().supported||engine.diagnostics().artifact.id!=='phase9-8k'))requireDeveloperTools();if(!engine)return;await engine.setSpeed(engine.speedState().rate===2?1:2);renderSpeed();});

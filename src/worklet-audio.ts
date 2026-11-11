@@ -7,6 +7,7 @@ export class WorkletAudio {
   readonly inputPort: MessagePort;
   rate: Speed = 1;
   private confirmedRate:Speed=1;
+  get confirmedSpeed(){return this.confirmedRate;}
   private state: any = {
     rate: 1,
     queueAheadMs: 0,
@@ -18,6 +19,7 @@ export class WorkletAudio {
   private sequence = 0;
   private rates=new RateWindows();
   private closed = false;
+  private fault:string|null=null;
   private pending = new Map<
     number,
     {
@@ -37,9 +39,10 @@ export class WorkletAudio {
       channel.port1,
     ]);
     node.port.onmessage = (e) => {
+      if(this.closed)return;
       const p = e.data;
       if (p.kind === "stats") {this.rates.accept(p.stats.rateWindows);this.state = {...p.stats, observedAtMs:performance.now()};}
-      else if (p.kind === "error") issue(p.message);
+      else if (p.kind === "error") {this.fault=p.message;issue(p.message);}
       else if (p.kind === "ack") {
         const r = this.pending.get(p.id);
         if (r) {
@@ -50,8 +53,7 @@ export class WorkletAudio {
         }
       }
     };
-    node.onprocessorerror = () =>
-      issue("AudioWorklet 처리 오류: 렌더링 지속을 확인할 수 없습니다.");
+    node.onprocessorerror = () => {this.fault="AudioWorklet 처리 오류: 렌더링 지속을 확인할 수 없습니다.";issue(this.fault);};
   }
   static async create(
     ctx: AudioContext,
@@ -103,6 +105,7 @@ export class WorkletAudio {
   }
   async setRate(rate: Speed) {
     if (this.closed) throw Error("AudioWorklet 종료");
+    for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('새 Worklet 속도 요청으로 이전 요청을 취소했습니다.'));}this.pending.clear();
     this.rate = rate;
     const id = ++this.sequence;
     await new Promise<void>((resolve, reject) => {
@@ -116,9 +119,10 @@ export class WorkletAudio {
   }
   resetHealth() {} // Do not erase real render gaps on a switch.
   problem() {
+    if(this.fault)return this.fault;
     if (this.state.overflows > 0) return "AudioWorklet 큐 용량 초과";
     if (this.state.queueAheadMs > 500) return "AudioWorklet 예약 큐 500ms 초과";
-    if (this.state.windowGapMs > 24)
+    if (this.descriptor!==K_WORKLET && this.state.windowGapMs > 24)
       return "최근2초 실제 오디오 렌더 공백이24ms를 초과했습니다. 원인 구간은 공급 통계를 확인하세요.";
     return null;
   }
@@ -128,6 +132,7 @@ export class WorkletAudio {
       rateWindows:this.state.rateWindows?this.rates.report():undefined,
       rate: this.descriptor===K_WORKLET?this.confirmedRate:this.rate,
       requestedRate:this.rate,
+      fault:this.fault,
       adapter: "worklet-ring-v1",
       worklet: this.descriptor,
       sourceNodesCreated: 0,
