@@ -1,8 +1,8 @@
 {
-  "id": "9-8p-dev-20261110190943522-70ff3973",
-  "commit": "8285547d3985",
+  "id": "9-8q-dev-20261111003941758-69b3934f",
+  "commit": "59b99707695e",
   "dirty": true,
-  "builtAt": "2026-11-10T19:09:43.522Z",
-  "revision": "phase9-8p-isolated-builds-1",
+  "builtAt": "2026-11-11T00:39:41.758Z",
+  "revision": "phase9-8q-auto-boot-1",
   "audience": "developer"
 }

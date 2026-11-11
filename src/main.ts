@@ -1,4 +1,5 @@
 import {storageKey,APP_STORAGE} from './app-storage';
+import {autoBootReport} from './dooky-auto';
 import {DEVELOPER_TOOLS, DEVELOPER_ACTIONS, requireDeveloperTools} from './build-policy';
 import {installPublicLauncher} from './public-launcher';
 import {preferredPlayEngine,rememberPlayEngine} from './play-preference';
@@ -343,6 +344,7 @@ async function diagnostic() {
     importTrace: importTrace(),
     bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
     bootSettings,
+    automaticBoot:autoBootReport(p,logs,engine?.diagnostics()??lastEngineMetrics),
     playUi:playUiSnapshot(),
     engine: engine?.diagnostics() ?? lastEngineMetrics,
     rawPreview: {

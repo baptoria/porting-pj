@@ -18,7 +18,8 @@ export interface Registration {
   music?: Profile["music"];
   committed: boolean;
   /** New-import-only, bounded initialization verified from an included launcher config. */
-  registrationPrelude?: 'LOADER.COM';
+  registrationPrelude?: 'LOADER.COM' | 'mount d . -t cdrom\nLOADER.COM';
+  registrationPreset?: 'ed4-dooky-directory-cd-experimental-v1';
 }
 export async function discardRegistration(draft?: Registration) {
   if (draft && !draft.committed && draft.archive.musicPackId) {
@@ -68,6 +69,10 @@ export async function commitRegistration(draft: Registration, executable: string
     launch: manual ? manualLaunchChoice(draft.analysis, executable, draft.files) : launchChoice(draft.analysis, executable, false),
   };
   if(draft.registrationPrelude && draft.kind !== 'patch') profile.settings.prelude = draft.registrationPrelude;
+  if(draft.registrationPreset && profile.launch) {
+    profile.launch.presetId=draft.registrationPreset;
+    profile.launch.initialization=draft.registrationPrelude!.split('\n');
+  }
   // OPFS handles/metadata must be accessible before linking the profile.
   await musicMounts(profile, draft.files);
   checkCancelled(signal);

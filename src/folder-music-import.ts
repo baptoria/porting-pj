@@ -7,6 +7,7 @@ import { publicImportError } from "./import-messages";
 import type { SourceInput, ImportProgress } from "./source-import";
 import type { Profile, ProfileKind } from "./model";
 import { bootPlan } from "./boot-trace";
+import type {DookyAutoPlan} from './dooky-auto';
 
 export function folderMusicPlan(scan: FolderScan, root: string, patch = false) {
   const selected = selectGameFolder(scan, root),
@@ -188,6 +189,7 @@ export async function prepareFolderMusic(
   iso?: SourceInput,
   notes: string[] = [],
   startup?: SourceInput,
+  automatic?: DookyAutoPlan,
 ): Promise<MusicRegistration> {
   let music: SourceInput[] = [],
     failed = false;
@@ -304,6 +306,14 @@ export async function prepareFolderMusic(
       }
     }
   }
+  if(automatic && kind!=='patch' && draft.music && draft.registrationPrelude==='LOADER.COM') {
+    // Only this newly prepared profile is changed. Native DOSBox MSCDEX exposes
+    // extracted songs as a read-only directory CD; never claim an ISO is mounted.
+    draft.music={...draft.music,prefix:'ED4'};
+    draft.registrationPrelude='mount d . -t cdrom\nLOADER.COM';
+    draft.registrationPreset='ed4-dooky-directory-cd-experimental-v1';
+    messages.push('동봉 실행 설정과 음악 경로를 확인하여 실행 환경을 자동 연결했습니다.');
+  } else if(automatic) messages.push('음악 연결이 완료되지 않아 CD 실행 환경을 적용하지 않았습니다. 게임 본체와 기존 자료는 유지됩니다.');
   return Object.assign(draft, {
     musicNotes: messages,
     isoMusicCount: music.length,

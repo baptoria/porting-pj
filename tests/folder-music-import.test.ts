@@ -117,6 +117,16 @@ const iso = {
   file: isoBlob({ "ED4/EFFECT/ED4-01.RAW": rawTone() }),
 };
 const body = [{ path: "GAME.BAT", file: new Blob(["TEST.COM"]) }];
+it('new confirmed CD profile uses native mount and music prefix without modifying archive bytes',async()=>{
+ const initial=draft();initial.files={'GAME.BAT':bytes('DRIVER.EXE ED4.EXE'),'LOADER.COM':bytes('modified loader')};initial.music={packId:'new-pack',prefix:''};
+ const before=structuredClone(initial.files);vi.mocked(prepareRegistration).mockResolvedValue(initial);
+ const r=await prepareFolderMusic(body,'game','vanilla',undefined,()=>{},new AbortController().signal,iso,[],{path:'DosBox/autoexec.conf',file:new Blob(['[NEW]\nCD ED4\nLOADER.COM\nGAME.BAT'])},{root:'ED4',evidence:[]});
+ expect(r.registrationPrelude).toBe('mount d . -t cdrom\nLOADER.COM');expect(r.registrationPreset).toBe('ed4-dooky-directory-cd-experimental-v1');expect(r.music?.prefix).toBe('ED4');expect(r.files).toEqual(before);
+});
+it('missing music never creates a successful automatic CD environment',async()=>{
+ const r=await prepareFolderMusic(body,'game','vanilla',undefined,()=>{},new AbortController().signal,undefined,[],undefined,{root:'ED4',evidence:[]});
+ expect(r.registrationPreset).toBeUndefined();expect(r.musicNotes?.join()).toContain('적용하지 않았습니다');
+});
 it("passes bounded ISO slices into the original registration and does not retain ISO itself", async () => {
   const r = await prepareFolderMusic(
     body,

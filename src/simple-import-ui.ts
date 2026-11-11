@@ -2,6 +2,7 @@ import {folderMusicPlan, prepareFolderMusic, type MusicRegistration} from './fol
 import {FolderSelectionError, scanGameFolder, folderPickerAvailable, folderUnavailable, type FolderScan} from './folder-registration';
 import type {SourceInput} from './source-import';
 import {DEVELOPER_TOOLS} from './build-policy';
+import {detectDookyFolder,type DookyAutoPlan} from './dooky-auto';
 import {publicImportError} from './import-messages';
 import type { Profile, ProfileKind } from "./model";
 import { prepareRegistration, commitRegistration, discardRegistration, importAdvice } from "./simple-registration";
@@ -149,10 +150,13 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
       if (!folderSupported) throw new FolderSelectionError(folderUnavailable);
       const kind = DEVELOPER_TOOLS?find<HTMLSelectElement>('simple-kind').value:publicKind;
       const scan = scanGameFolder(files, kind === 'patch');
-      const selected = folderMusicPlan(scan, scan.preferred, kind === 'patch');
+      controller=new AbortController();
+      const automatic=DEVELOPER_TOOLS&&kind!=='patch'?await detectDookyFolder(scan,controller.signal):undefined;
+      controller.signal.throwIfAborted();
+      const selected = folderMusicPlan(scan, automatic?.root??scan.preferred, kind === 'patch');
       const uniqueGame=scan.files.filter(f=>/(^|\/)GAME\.BAT$/i.test(f.path)).length===1;
       const automaticDistribution=kind!=='patch'&&uniqueGame&&selected.iso&&/(^|\/)DosBox\/CD\/ED4\.iso$/i.test(selected.iso.path);
-      if (!automaticDistribution && (scan.preferred || scan.roots.length > 1 || selected.skippedIso)) {
+      if (!automatic && !automaticDistribution && (scan.preferred || scan.roots.length > 1 || selected.skippedIso)) {
         pendingFolder = scan;
         find('simple-folder-root').innerHTML = scan.roots.map(root=>`<option value="${escape(root)}">${escape(root || scan.name + ' (선택한 폴더 전체)')}</option>`).join('');
         find<HTMLSelectElement>('simple-folder-root').value = scan.preferred;
@@ -160,10 +164,10 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
         message('게임 폴더를 찾았습니다. 함께 등록할 파일 범위를 확인해 주세요.');
         return;
       }
-      await prepare(selected.files, selected.name, selected.iso, selected.notes, selected.startup);
+      await prepare(selected.files, selected.name, selected.iso, selected.notes, selected.startup,automatic);
     } else if (DEVELOPER_TOOLS) await prepare(files[0], files[0].name);
   }));
-  async function prepare(input: SourceInput[] | File, name: string, iso?:SourceInput, notes:string[]=[], startup?:SourceInput) {
+  async function prepare(input: SourceInput[] | File, name: string, iso?:SourceInput, notes:string[]=[], startup?:SourceInput, automatic?:DookyAutoPlan) {
     options.idle(); controller = new AbortController();
     const signal = controller.signal;
     find('simple-choice').hidden = true; find('simple-progress').hidden = false;
@@ -175,7 +179,7 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
       message(DEVELOPER_TOOLS||/^(ISO|음악 파일|음악을 보관|게임 파일 확인)/.test(text)?text:(iso?'게임과 ISO 음악을 보관하고 있습니다…':'파일을 확인하고 보관하고 있습니다…'));
       if (details) find<HTMLProgressElement>('simple-progress').value = details.totalBytes ? details.completedBytes/details.totalBytes : 0;
     };
-    draft = Array.isArray(input)?await prepareFolderMusic(input,name,kind,base,onProgress,signal,iso,notes,startup):await prepareRegistration(input,name,kind,base,onProgress,signal);
+    draft = Array.isArray(input)?await prepareFolderMusic(input,name,kind,base,onProgress,signal,iso,notes,startup,automatic):await prepareRegistration(input,name,kind,base,onProgress,signal);
     signal.throwIfAborted();
     find('simple-analysis').textContent = !DEVELOPER_TOOLS?'게임을 시작할 파일을 한 번만 선택해 주세요.':draft.analysis.reason + ' 참조 누락·형식 분석은 참고 정보입니다. 직접 선택하면 원본 파일 그대로 DOS 실행을 시도합니다. 실제 필수 파일이 없으면 게임 내부에서 실패할 수 있습니다.';
     find('simple-issues').hidden=!DEVELOPER_TOOLS&&!draft.conflicts.length;
