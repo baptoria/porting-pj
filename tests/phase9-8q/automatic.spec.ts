@@ -84,6 +84,8 @@ test("one folder -> automatic configured root/CD/RAW -> K save, speed, restart o
   await menu(page);
   await page.locator("#ingame-advanced").click();
   const data = await diagnostic(page);
+  expect(data.automaticBoot.decision.registration.decision.application.applied).toBe(true);
+  expect(data.automaticBoot.decision.beforeLaunch.checks.prelude).toBe(true);
   expect(data.automaticBoot.cd.imageMounted).toBe(false);
   expect(data.automaticBoot.cdMountedLog).toBe(true);
   expect(data.automaticBoot.rawReads).toBeGreaterThan(0);

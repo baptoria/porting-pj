@@ -1,3 +1,4 @@
+import {dookyDecisionReport,observeDookyLaunch} from './dooky-diagnostics';
 import {storageKey,APP_STORAGE} from './app-storage';
 import {autoBootReport} from './dooky-auto';
 import {DEVELOPER_TOOLS, DEVELOPER_ACTIONS, requireDeveloperTools} from './build-policy';
@@ -344,7 +345,7 @@ async function diagnostic() {
     importTrace: importTrace(),
     bootTrace: bootTrace ? {...bootTrace.report(),active:diagnosticRun,scope:'마지막 임시 진단 세션 (현재 선택 프로필과 다를 수 있음)'} : undefined,
     bootSettings,
-    automaticBoot:autoBootReport(p,logs,engine?.diagnostics()??lastEngineMetrics),
+    automaticBoot:{...autoBootReport(p,logs,engine?.diagnostics()??lastEngineMetrics),decision:dookyDecisionReport(p)},
     playUi:playUiSnapshot(),
     engine: engine?.diagnostics() ?? lastEngineMetrics,
     rawPreview: {
@@ -799,6 +800,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
     }
     launchStep("raw-mount");
     const mountedMusic = traceOptions?.rawMounted===false?[]:await musicMounts(p, layerFiles(p, input), save);
+    observeDookyLaunch(p,mountedMusic.map(m=>m.path));
     const inspection = inspectGame(layerFiles(p, input));
     if (inspection.windowsExecutables.includes(p.executable))
       log("PE/NE 서명 후보가 있습니다. DOS stub 실행 가능성을 미리 단정하지 않고 실행합니다. Windows/OS2 API 자체는 이 엔진에서 지원하지 않습니다.");
@@ -807,7 +809,7 @@ async function startGame(traceOptions?:{entry:string;settings:DosSettings;rawMou
       const effective={...layerFiles(p,input)};
       for(const path of deletedFiles(save))delete effective[path];
       Object.assign(effective,overlayFiles(save));
-      const plan=bootPlan(effective,traceOptions.entry,p.settings.prelude);
+      const plan=bootPlan(effective,traceOptions.entry,p.settings.prelude,DEVELOPER_TOOLS);
       if(plan.issues.length)throw Error('안전한 자동 추적 범위를 벗어납니다. 원본은 변경하지 않았습니다.\n'+plan.issues.join('\n'));
       bootTrace=new BootTrace(plan);
       p={...p,executable:plan.executable,settings:{...traceOptions.settings,prelude:''}};
@@ -1632,7 +1634,7 @@ $('#boot-comparison').onchange=()=>{
 };
 function showBootAnalysis(){
   requireDeveloperTools();
-  const plan=bootPlan(bootFiles,$<HTMLSelectElement>('#boot-entry').value,current().settings.prelude);
+  const plan=bootPlan(bootFiles,$<HTMLSelectElement>('#boot-entry').value,current().settings.prelude,DEVELOPER_TOOLS);
   $('#boot-analysis').textContent=plan.steps.map(s=>`${s.id}. ${s.batch}:${s.line} [${s.category}] ${s.command}${s.afterExpected?'':' (BAT 연결: 반환 마커 없음)'}`).join('\n')+
     '\n\n확인 사항: '+(plan.issues.join('\n')||'지원하는 직선 실행 흐름. 실제 동작은 Galaxy에서 확인하세요.')+
     '\n\n한글 관련 파일 이름 후보: '+(plan.evidence.koreanCandidates.join(', ')||'발견 안 됨 (필요 없음의 증거는 아님)')+

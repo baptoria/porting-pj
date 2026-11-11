@@ -35,6 +35,9 @@ test("actual folder automatically starts original game with native directory CD"
     await menu(page);
     await page.locator("#ingame-advanced").click();
     const data = await diagnostic(page);
+    expect(data.automaticBoot.decision.registration.decision.detected).toBe(true);
+    expect(data.automaticBoot.decision.registration.decision.application.applied).toBe(true);
+    expect(data.automaticBoot.decision.beforeLaunch.checks.musicPath).toBe(true);
     expect(data.engine.music.reads).toBeGreaterThan(0);
     expect(data.engine.audioSamples).toBeGreaterThan(0);
     expect(data.engine.runtimeErrors.events).toEqual([]);

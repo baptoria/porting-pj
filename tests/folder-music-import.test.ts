@@ -308,3 +308,12 @@ it("does not borrow another installation launcher initialization or its ISO", ()
   expect(p.iso).toBeUndefined();
   expect(p.notes.join()).toContain("다른 설치본");
 });
+
+it('HF1 applies the same BOM-aware startup analysis during preparation, not only detection',async()=>{
+ const d=draft();d.music={packId:'new-pack',prefix:''};d.files['LOADER.COM']=bytes('dos');vi.mocked(prepareRegistration).mockResolvedValue(d);
+ const {inspectDookyFolder}=await import('../src/dooky-auto');
+ const decision=(await inspectDookyFolder({name:'fixture',files:[],roots:[''],preferred:''},new AbortController().signal)).report;
+ decision.detected=true;decision.reason='matched';
+ const r=await prepareFolderMusic(body,'game','vanilla',undefined,()=>{},new AbortController().signal,iso,[],{path:'autoexec.conf',file:new Blob([Buffer.from('\ufeff[NEW]\r@CD ED4\rLOADER.COM\rGAME.BAT','utf16le')])},{root:'ED4',evidence:[]},decision);
+ expect(r.registrationPrelude).toBe('mount d . -t cdrom\nLOADER.COM');expect(r.registrationDecision?.application?.applied).toBe(true);
+});

@@ -2,11 +2,11 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8q-dev-20261111003941758-69b3934f",
-    "commit": "59b99707695e",
+    "id": "9-8q-hf1-dev-20261111015415596-df3e5813",
+    "commit": "72dda9a5e4a0",
     "dirty": true,
-    "builtAt": "2026-11-11T00:39:41.758Z",
-    "revision": "phase9-8q-auto-boot-1",
+    "builtAt": "2026-11-11T01:54:15.596Z",
+    "revision": "phase9-8q-hf1-auto-boot-1",
     "audience": "developer"
   },
   "files": [
@@ -16,14 +16,14 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-EEaIdWKc.js",
-      "bytes": 7049,
-      "sha256": "80ea1600d721cc82727780a07e1d0ee497ba7974c7d4fd293c9e99f1573edf42"
+      "path": "assets/launcher-update-CUz6WKLp.js",
+      "bytes": 7057,
+      "sha256": "3ff429c59eb8cba6c7a51a9789ae0611add36eb5ddaab95a7e0ad6123b821609"
     },
     {
-      "path": "assets/main-ClanAWoF.js",
-      "bytes": 259992,
-      "sha256": "ce4b8aa497c77ed6616fc86df035a19b0a773599d47944efeb0a6da82f4e7610"
+      "path": "assets/main-CvzExQ7R.js",
+      "bytes": 265727,
+      "sha256": "8ef568f7e72a1af52075809bfe2fe22b6433311c0e194fada48add62b23ea670"
     },
     {
       "path": "assets/main-kii59z9s.css",
@@ -41,9 +41,9 @@
       "sha256": "fa6ab23a8064de358260bfd12670bb3e489763fec6b700f96423701dfaa533d6"
     },
     {
-      "path": "assets/update-B_r1MR_G.js",
+      "path": "assets/update-DFSqS7rH.js",
       "bytes": 103,
-      "sha256": "8feff0543abcc0e7da5440f13295235770fac9c4ba5f412c164e68482c10acd6"
+      "sha256": "d1ffef7c84afbfdce766b4cc69273ec99db4f384d39c66c6b532ae743c4a8c06"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
@@ -223,7 +223,7 @@
     {
       "path": "index.html",
       "bytes": 867,
-      "sha256": "5d5911bc592526714fa5ddabf0c1328c4d114bf0f0031d2d9223f555f22a2846"
+      "sha256": "23b596d61331e23ecc578cd2cba34aaa913634f9000ad969edc52aaaa3012061"
     },
     {
       "path": "licenses/NOTICE.html",
@@ -313,7 +313,7 @@
     {
       "path": "update.html",
       "bytes": 651,
-      "sha256": "d9c54b4a208fe6b026077f37f762f04d2b83fe60ea3fdf6eea852af0a8c52f28"
+      "sha256": "050f6f5fe728c27e6833f599b818ab226699f9fcc056dac7407bdb1f83d56a8b"
     },
     {
       "path": "vendor/emulators.js",
@@ -726,5 +726,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "13466ae811bc6dd6f681d90de1e0275ad4f093526b332d4d3ddf44df681958c9"
+  "swSha256": "d5254853e9f4deb6727632fb6d7b72a8ba093c271d5ccf9fafd43e82a3d8a645"
 }

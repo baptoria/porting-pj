@@ -1,3 +1,5 @@
+import type {DookyDecision} from './dooky-auto';
+import {rememberDookyDecision} from './dooky-diagnostics';
 import { compose, validateExecutable } from "./archive";
 import { analyzeLaunch, launchChoice, manualLaunchChoice, type LaunchAnalysis } from "./launch-analysis";
 import { identity } from "./integrity";
@@ -19,6 +21,7 @@ export interface Registration {
   committed: boolean;
   /** New-import-only, bounded initialization verified from an included launcher config. */
   registrationPrelude?: 'LOADER.COM' | 'mount d . -t cdrom\nLOADER.COM';
+  registrationDecision?: DookyDecision;
   registrationPreset?: 'ed4-dooky-directory-cd-experimental-v1';
 }
 export async function discardRegistration(draft?: Registration) {
@@ -69,7 +72,7 @@ export async function commitRegistration(draft: Registration, executable: string
     launch: manual ? manualLaunchChoice(draft.analysis, executable, draft.files) : launchChoice(draft.analysis, executable, false),
   };
   if(draft.registrationPrelude && draft.kind !== 'patch') profile.settings.prelude = draft.registrationPrelude;
-  if(draft.registrationPreset && profile.launch) {
+  if(draft.registrationPreset && executable==='GAME.BAT' && profile.launch) {
     profile.launch.presetId=draft.registrationPreset;
     profile.launch.initialization=draft.registrationPrelude!.split('\n');
   }
@@ -78,6 +81,11 @@ export async function commitRegistration(draft: Registration, executable: string
   checkCancelled(signal);
   await importCommit('profileDb',()=>putProfile(profile, [draft.archive], signal));
   draft.committed = true;
+  if(draft.registrationDecision){
+    const d=structuredClone(draft.registrationDecision);
+    if(d.application){d.application.entry=executable==='GAME.BAT';d.application.applied=d.application.applied&&d.application.entry;}
+    rememberDookyDecision(profile.id,d);
+  }
   return profile;
 }
 export function importAdvice(error: unknown) {

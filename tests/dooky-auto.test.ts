@@ -1,6 +1,7 @@
 import { it, expect } from "vitest";
 import {
   detectDookyFolder,
+  inspectDookyFolder,
   autoBootReport,
   DOOKY_CD_PRESET,
 } from "../src/dooky-auto";
@@ -128,4 +129,86 @@ it("diagnostics distinguish configured directory CD, observed request, failures 
   expect(autoBootReport(undefined, [], {}).distribution).toBe(
     "unclassified-or-existing",
   );
+});
+
+it("HF1 records exact failed check without swallowing config errors", async () => {
+  const c = new AbortController();
+  for (const [changes, reason] of [
+    [
+      { "DosBox/Settings.conf": null },
+      "missing-or-ambiguous-packaged-settings",
+    ],
+    [
+      { "DosBox/autoexec.conf": "[NEW]\nCD ED4\nOTHER.COM\nGAME.BAT" },
+      "unsupported-packaged-startup",
+    ],
+    [
+      { "DosBox/autoexec.conf": new Blob([new Uint8Array([255, 254, 65])]) },
+      "unreadable-or-invalid-dosboxConfig",
+    ],
+    [
+      { "ED4/GAME.BAT": bat + "\nDELETE.EXE" },
+      "unsupported-batch-flow-or-encoding",
+    ],
+    [
+      { "DosBox/CD/ED4.iso": new Blob(["bad"]) },
+      "unreadable-or-invalid-isoMusic",
+    ],
+  ] as [Record<string, Blob | string | null>, string][]) {
+    const r = await inspectDookyFolder(fixture(changes), c.signal);
+    expect(r.plan).toBeUndefined();
+    expect(r.report.reason).toBe(reason);
+    if(reason==='missing-or-ambiguous-packaged-settings')expect(r.report.checks.dosboxConfig).toBeNull();
+    expect(JSON.stringify(r.report)).not.toContain("user-folder");
+  }
+});
+it("HF1 supports explicit startup BOM and equivalent whitespace/CR, not altered commands", async () => {
+  const startup = "[NEW]\rTITLE:local\r@CD   ED4\r@LOADER.COM\r@GAME.BAT";
+  const r = await inspectDookyFolder(
+    fixture({
+      "DosBox/autoexec.conf": new Blob([
+        Buffer.from("\ufeff" + startup, "utf16le"),
+      ]),
+      "DosBox/Settings.conf": "CD = 1\r",
+      "ED4/GAME.BAT": bat.replaceAll("\n", "\r\n"),
+    }),
+    new AbortController().signal,
+  );
+  expect(r.report.detected).toBe(true);
+  expect(r.report.encodings.startup).toBe("utf-16le");
+  expect(r.plan?.root).toBe("ED4");
+  expect(
+    await detect(
+      fixture({ "DosBox/autoexec.conf": startup + "\rMOUNT C OTHER" }),
+    ),
+  ).toBeUndefined();
+});
+it("HF1 inner folder cannot borrow inaccessible parent ISO or configuration", async () => {
+  const scan = fixture();
+  scan.files = scan.files
+    .filter((f) => f.path.startsWith("ED4/"))
+    .map((f) => ({ ...f, path: f.path.slice(4) }));
+  scan.roots = ["", "ED4"];
+  scan.preferred = "";
+  const r = await inspectDookyFolder(scan, new AbortController().signal);
+  expect(r.plan).toBeUndefined();
+  expect(r.report.reason).toBe("iso-outside-selection-or-missing");
+});
+it("HF1 rechecks chosen root without merging nested installations", async () => {
+  const c = new AbortController();
+  expect(
+    (await inspectDookyFolder(fixture(), c.signal, "ED4")).plan?.root,
+  ).toBe("ED4");
+  expect(
+    (await inspectDookyFolder(fixture(), c.signal, "ED4/ED4")).report.reason,
+  ).toBe("configured-game-root-not-selected-or-missing");
+});
+
+it("HF1 refuses bare-CR BAT auto configuration: pinned DOS shell does not treat CR alone as a command delimiter", async () => {
+  const r = await inspectDookyFolder(
+    fixture({ "ED4/GAME.BAT": bat.replaceAll("\n", "\r") }),
+    new AbortController().signal,
+  );
+  expect(r.report.reason).toBe("unsupported-batch-flow-or-encoding");
+  expect(r.plan).toBeUndefined();
 });

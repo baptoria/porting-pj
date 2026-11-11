@@ -1,8 +1,9 @@
+import {rememberDookyAttempt,latestDookyAttempt} from './dooky-diagnostics';
 import {folderMusicPlan, prepareFolderMusic, type MusicRegistration} from './folder-music-import';
 import {FolderSelectionError, scanGameFolder, folderPickerAvailable, folderUnavailable, type FolderScan} from './folder-registration';
 import type {SourceInput} from './source-import';
 import {DEVELOPER_TOOLS} from './build-policy';
-import {detectDookyFolder,type DookyAutoPlan} from './dooky-auto';
+import {inspectDookyFolder,dookyAdvice,type DookyAutoPlan,type DookyDecision} from './dooky-auto';
 import {publicImportError} from './import-messages';
 import type { Profile, ProfileKind } from "./model";
 import { prepareRegistration, commitRegistration, discardRegistration, importAdvice } from "./simple-registration";
@@ -49,7 +50,7 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
   let pendingFolder: FolderScan | undefined;
   find('import-diagnostics').onclick=()=>{
     if(!DEVELOPER_TOOLS){message('진단은 개발 빌드에서만 사용할 수 있습니다.');return;}
-    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'ed4-import-diagnostics',appVersion:'0.5.0',diagnosticRevision:'phase7-runtime-1',userAgent:navigator.userAgent,trace:importTrace()},null,2)],{type:'application/json'}));
+    const url=URL.createObjectURL(new Blob([JSON.stringify({format:'ed4-import-diagnostics',appVersion:'0.5.0',diagnosticRevision:'phase7-runtime-1',userAgent:navigator.userAgent,trace:importTrace(),automaticDetection:latestDookyAttempt()},null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='ed4-import-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   let controller: AbortController | undefined, draft: MusicRegistration | undefined, processing = false;
@@ -137,10 +138,16 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
   find('simple-folder-root').onchange = folderSummary;
   find('simple-folder-confirm').onclick = () => void options.run(()=>guarded(async()=>{
     if (!pendingFolder) return;
-    const selection = folderMusicPlan(pendingFolder, find<HTMLSelectElement>('simple-folder-root').value, (DEVELOPER_TOOLS?find<HTMLSelectElement>('simple-kind').value:publicKind)==='patch');
+    const root=find<HTMLSelectElement>('simple-folder-root').value;
+    const patch=(DEVELOPER_TOOLS?find<HTMLSelectElement>('simple-kind').value:publicKind)==='patch';
+    controller=new AbortController();
+    const inspected=DEVELOPER_TOOLS&&!patch?await inspectDookyFolder(pendingFolder,controller.signal,root):undefined;
+    controller.signal.throwIfAborted();
+    if(inspected)rememberDookyAttempt(inspected.report);
+    const selection = folderMusicPlan(pendingFolder, root, patch);
     if(selection.needsRootChoice)throw new FolderSelectionError('게임 폴더 하나를 선택해 주세요.');
     pendingFolder = undefined; find('simple-folder-choice').hidden = true;
-    await prepare(selection.files, selection.name, selection.iso, selection.notes, selection.startup);
+    await prepare(selection.files, selection.name, selection.iso, [...selection.notes,...(inspected&&!inspected.plan?[dookyAdvice(inspected.report)]:[])], selection.startup,inspected?.plan,inspected?.report);
   }));
   for (const selector of sourceIds) find<HTMLInputElement>(selector).onchange = () => void options.run(()=>guarded(async()=>{
     options.idle(); await discard();
@@ -151,7 +158,9 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
       const kind = DEVELOPER_TOOLS?find<HTMLSelectElement>('simple-kind').value:publicKind;
       const scan = scanGameFolder(files, kind === 'patch');
       controller=new AbortController();
-      const automatic=DEVELOPER_TOOLS&&kind!=='patch'?await detectDookyFolder(scan,controller.signal):undefined;
+      const inspected=DEVELOPER_TOOLS&&kind!=='patch'?await inspectDookyFolder(scan,controller.signal):undefined;
+      if(inspected)rememberDookyAttempt(inspected.report);
+      const automatic=inspected?.plan;
       controller.signal.throwIfAborted();
       const selected = folderMusicPlan(scan, automatic?.root??scan.preferred, kind === 'patch');
       const uniqueGame=scan.files.filter(f=>/(^|\/)GAME\.BAT$/i.test(f.path)).length===1;
@@ -164,10 +173,10 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
         message('게임 폴더를 찾았습니다. 함께 등록할 파일 범위를 확인해 주세요.');
         return;
       }
-      await prepare(selected.files, selected.name, selected.iso, selected.notes, selected.startup,automatic);
+      await prepare(selected.files, selected.name, selected.iso, [...selected.notes,...(inspected&&!automatic?[dookyAdvice(inspected.report)]:[])], selected.startup,automatic,inspected?.report);
     } else if (DEVELOPER_TOOLS) await prepare(files[0], files[0].name);
   }));
-  async function prepare(input: SourceInput[] | File, name: string, iso?:SourceInput, notes:string[]=[], startup?:SourceInput, automatic?:DookyAutoPlan) {
+  async function prepare(input: SourceInput[] | File, name: string, iso?:SourceInput, notes:string[]=[], startup?:SourceInput, automatic?:DookyAutoPlan, decision?:DookyDecision) {
     options.idle(); controller = new AbortController();
     const signal = controller.signal;
     find('simple-choice').hidden = true; find('simple-progress').hidden = false;
@@ -179,8 +188,9 @@ ${DEVELOPER_TOOLS ? '<label class="file-drop">개발용 ZIP 등록<input id="sim
       message(DEVELOPER_TOOLS||/^(ISO|음악 파일|음악을 보관|게임 파일 확인)/.test(text)?text:(iso?'게임과 ISO 음악을 보관하고 있습니다…':'파일을 확인하고 보관하고 있습니다…'));
       if (details) find<HTMLProgressElement>('simple-progress').value = details.totalBytes ? details.completedBytes/details.totalBytes : 0;
     };
-    draft = Array.isArray(input)?await prepareFolderMusic(input,name,kind,base,onProgress,signal,iso,notes,startup,automatic):await prepareRegistration(input,name,kind,base,onProgress,signal);
+    draft = Array.isArray(input)?await prepareFolderMusic(input,name,kind,base,onProgress,signal,iso,notes,startup,automatic,decision):await prepareRegistration(input,name,kind,base,onProgress,signal);
     signal.throwIfAborted();
+    if(draft.registrationDecision)rememberDookyAttempt(draft.registrationDecision);
     find('simple-analysis').textContent = !DEVELOPER_TOOLS?'게임을 시작할 파일을 한 번만 선택해 주세요.':draft.analysis.reason + ' 참조 누락·형식 분석은 참고 정보입니다. 직접 선택하면 원본 파일 그대로 DOS 실행을 시도합니다. 실제 필수 파일이 없으면 게임 내부에서 실패할 수 있습니다.';
     find('simple-issues').hidden=!DEVELOPER_TOOLS&&!draft.conflicts.length;
     find('simple-issues').textContent = !DEVELOPER_TOOLS?'수정 파일이 적용되는 위치:\n'+draft.conflicts.join('\n'):draft.analysis.candidates.map(c=>`${c.path}${c.missing.length ? '\n누락: '+c.missing.join(', ') : ''}${c.warnings.length ? '\n확인: '+c.warnings.join(' / ') : ''}`).join('\n\n') + (draft.conflicts.length ? '\n\n원본과 충돌: '+draft.conflicts.join(', ') : '');

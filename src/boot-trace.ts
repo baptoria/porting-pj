@@ -1,10 +1,12 @@
 import { validateExecutable } from './archive';
 import { inspectGame } from './file-analysis';
 import type { Files } from './model';
+import { dosNeStub } from './dos-ne';
 
 export interface BootStep {
   id: number; batch: string; line: number; command: string; program?: string;
   arguments?: string[]; redirection?: '> NUL';
+  formatEvidence?: 'DOS-MZ-stub-with-NE-target-5';
   category: 'sound'|'game'|'korean-candidate'|'cd-drive'|'batch'|'initialization';
   afterExpected: boolean;
 }
@@ -53,7 +55,7 @@ const category=(line:string,program?:string):BootStep['category']=>
  * or ERRORLEVEL/arguments could be changed by instrumentation. Preserve BAT bytes.
  * A BEFORE with no AFTER proves entry, not a crash: games normally do not return.
  */
-export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
+export function bootPlan(files:Files, entry:string, prelude='', developerDosCompatibility=false):BootPlan {
   const plan:BootPlan={entry,executable:'',steps:[],issues:[],generated:{},evidence:{
     koreanCandidates:Object.keys(files).filter(p=>/(?:HANGUL|KOREAN|HGC|(?:^|\/)HAN\.)/i.test(p)),
     cdImages:Object.keys(files).filter(p=>/\.(ISO|CUE|BIN|MDF|MDS)$/i.test(p)),driveCommands:[]}};
@@ -95,6 +97,10 @@ export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
         if(/[%!&|^]/.test(line))issue(batch,index+1,'변수/복합 ECHO는 자동 추적하지 않음');
       }else if(/[%!&|<>^"\x80-\xff]/.test(analyzed)||/^(IF|GOTO|FOR|SHIFT|EXIT|PATH|LH|LOADHIGH)$/.test(command)||command.startsWith(':')){
         issue(batch,index+1,`${/[<>]/.test(analyzed)?'지원하지 않는 리다이렉션 (단일 > NUL만 허용)': '분기·변수·PATH·확장 문법은 추적 변환하지 않음'}. 원문: ${original}`);
+      }else if(developerDosCompatibility && /^MOUNT D \. -T CDROM$/i.test(analyzed.replace(/\s+/g,' '))) {
+        // Only the application's verified virtual-root CD projection. No host paths,
+        // alternate drive, mount switches, redirection or remapping of C: is accepted.
+        if(nullRedirect)issue(batch,index+1,'CD 초기화 출력 리다이렉션은 추적하지 않음');
       }else if(['CLS','PAUSE','SET'].includes(command)) {
         if(command==='SET' && !/^[A-Z_][A-Z0-9_]*=.+$/i.test(args.join(' ')))issue(batch,index+1,'SET 문법 확인 필요');
       }else if(['CD','CHDIR'].includes(command)){
@@ -109,7 +115,10 @@ export function bootPlan(files:Files, entry:string, prelude=''):BootPlan {
           const name=resolve(cwd,invocation.executable),matches=(/\.(COM|EXE|BAT)$/i.test(name)?[name]:[name+'.COM',name+'.EXE',name+'.BAT']).filter(p=>files[p]);
           if(matches.length!==1)throw Error('실행 파일 누락/중복 또는 지원하지 않는 내부 명령: '+target);
           const program=matches[0];validateExecutable(program,files);
-          if(windows.has(program))throw Error('PE/NE 프로그램');
+          if(windows.has(program)){
+            if(!developerDosCompatibility || !dosNeStub(files[program]))throw Error('PE/NE 프로그램: 확인된 DOS MZ 로더가 아님 (Windows/OS2 실행 지원을 뜻하지 않음)');
+            step.formatEvidence='DOS-MZ-stub-with-NE-target-5';
+          }
           step.program=program;step.category=category(line,program);
           if(program.endsWith('.BAT')){
             if(nullRedirect)throw Error('BAT 전체 > NUL은 내부 진단 마커를 숨기므로 추적 불가');

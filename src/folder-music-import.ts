@@ -7,7 +7,8 @@ import { publicImportError } from "./import-messages";
 import type { SourceInput, ImportProgress } from "./source-import";
 import type { Profile, ProfileKind } from "./model";
 import { bootPlan } from "./boot-trace";
-import type {DookyAutoPlan} from './dooky-auto';
+import type {DookyAutoPlan, DookyDecision} from './dooky-auto';
+import {packagedText,startupCommands} from './packaged-text';
 
 export function folderMusicPlan(scan: FolderScan, root: string, patch = false) {
   const selected = selectGameFolder(scan, root),
@@ -105,7 +106,12 @@ export function folderMusicPlan(scan: FolderScan, root: string, patch = false) {
     excluded: scan.files.length - files.length - (iso ? 1 : 0),
   };
 }
-export async function dookyPrelude(config: Blob, signal: AbortSignal) {
+export async function dookyPrelude(config: Blob, signal: AbortSignal, explicitEncoding=false) {
+  if(explicitEncoding){
+    const {text}=await packagedText(config,signal);
+    if(!startupCommands(text))throw new IsoMusicError("동봉 실행 설정의 명령 순서를 확인하지 못했습니다.");
+    return "LOADER.COM" as const;
+  }
   if (config.size > 16384)
     throw new IsoMusicError(
       "실행 설정이 커서 초기화 순서를 자동 적용하지 않았습니다.",
@@ -190,6 +196,7 @@ export async function prepareFolderMusic(
   notes: string[] = [],
   startup?: SourceInput,
   automatic?: DookyAutoPlan,
+  decision?: DookyDecision,
 ): Promise<MusicRegistration> {
   let music: SourceInput[] = [],
     failed = false;
@@ -225,7 +232,7 @@ export async function prepareFolderMusic(
   let startupPrelude: "LOADER.COM" | undefined;
   if (startup && kind !== "patch") {
     try {
-      startupPrelude = await dookyPrelude(startup.file, signal);
+      startupPrelude = await dookyPrelude(startup.file, signal, !!decision);
     } catch (error) {
       signal.throwIfAborted();
       messages.push(reason(error));
@@ -306,7 +313,8 @@ export async function prepareFolderMusic(
       }
     }
   }
-  if(automatic && kind!=='patch' && draft.music && draft.registrationPrelude==='LOADER.COM') {
+  const musicPath=[...music,...input.filter(f=>/\.RAW$/i.test(f.path))].some(f=>/^EFFECT\/[^/]+\.RAW$/i.test(f.path));
+  if(automatic && kind!=='patch' && draft.music && musicPath && draft.registrationPrelude==='LOADER.COM') {
     // Only this newly prepared profile is changed. Native DOSBox MSCDEX exposes
     // extracted songs as a read-only directory CD; never claim an ISO is mounted.
     draft.music={...draft.music,prefix:'ED4'};
@@ -314,6 +322,7 @@ export async function prepareFolderMusic(
     draft.registrationPreset='ed4-dooky-directory-cd-experimental-v1';
     messages.push('동봉 실행 설정과 음악 경로를 확인하여 실행 환경을 자동 연결했습니다.');
   } else if(automatic) messages.push('음악 연결이 완료되지 않아 CD 실행 환경을 적용하지 않았습니다. 게임 본체와 기존 자료는 유지됩니다.');
+  if(decision)draft.registrationDecision={...decision,application:{applied:!!draft.registrationPreset,reason:draft.registrationPreset?'applied':!automatic?'not-detected':!draft.music?'music-unavailable':!musicPath?'music-path-unavailable':draft.registrationPrelude!=='LOADER.COM'?'startup-not-applied':'not-applied',musicPath,prelude:draft.registrationPrelude==='mount d . -t cdrom\nLOADER.COM',entry:draft.analysis.automatic==='GAME.BAT'}};
   return Object.assign(draft, {
     musicNotes: messages,
     isoMusicCount: music.length,
