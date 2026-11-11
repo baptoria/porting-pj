@@ -89,7 +89,7 @@ for (const mode of ["bom", "missing", "inner"] as const)
       await expect(page.locator("#simple-import-dialog")).not.toBeVisible();
       const p = (await profiles(page))[0];
       expect(p.launch.presetId).toBe(
-        mode === "bom"
+        mode !== "inner"
           ? "ed4-dooky-directory-cd-experimental-v1"
           : "ed4-generic-experimental-v1",
       );
@@ -101,11 +101,7 @@ for (const mode of ["bom", "missing", "inner"] as const)
             )[0],
         );
       expect((await readDecision()).decision.reason).toBe(
-        mode === "bom"
-          ? "matched"
-          : mode === "missing"
-            ? "missing-or-ambiguous-packaged-settings"
-            : "iso-outside-selection-or-missing",
+        mode === "bom" ? "matched" : mode === "missing" ? "matched-without-complete-settings" : "iso-outside-selection-or-missing",
       );
       await page.reload();
       await page.locator("#play").click();
@@ -114,11 +110,11 @@ for (const mode of ["bom", "missing", "inner"] as const)
       await page.locator("#ingame-advanced").click();
       const j = await diagnostic(page);
       expect(j.automaticBoot.decision.registration.decision.detected).toBe(
-        mode === "bom",
+        mode !== "inner",
       );
-      expect(j.automaticBoot.decision.current.prelude).toBe(mode === "bom");
+      expect(j.automaticBoot.decision.current.prelude).toBe(mode !== "inner");
       expect(j.automaticBoot.decision.beforeLaunch.checks.musicPath).toBe(
-        mode === "bom",
+        mode !== "inner",
       );
       await stop(page);
     },

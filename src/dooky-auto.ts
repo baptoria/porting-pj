@@ -19,6 +19,12 @@ export interface DookyDecision {
   >;
   encodings: Record<string, string>;
   missing: string[];
+  rule?: "packaged-settings" | "structure-batch-iso";
+  configuration?: {
+    startup: "absent" | "present" | "ambiguous";
+    settings: "absent" | "present" | "ambiguous";
+  };
+  configurationElsewhere?: { startup: number; settings: number };
   selection: {
     files: number;
     roots: number;
@@ -113,34 +119,54 @@ export async function inspectDookyFolder(
       settings = one(ancestor + "DosBox/Settings.conf");
     r.checks.dosboxConfig = config ? null : false;
     r.checks.settings = settings ? null : false;
-    if (!config) {
-      fail("missing-or-ambiguous-packaged-startup");
-      continue;
-    }
-    if (!settings) {
-      fail("missing-or-ambiguous-packaged-settings");
+    const presence = (name: string) => {
+      const count = scan.files.filter(
+        (f) => upper(f.path) === upper(ancestor + "DosBox/" + name),
+      ).length;
+      return count === 0 ? "absent" : count === 1 ? "present" : "ambiguous";
+    };
+    r.configuration = {
+      startup: presence("autoexec.conf"),
+      settings: presence("Settings.conf"),
+    };
+    const elsewhere = (name: string) =>
+      scan.files.filter(
+        (f) =>
+          upper(f.path.split("/").at(-1)!) === upper(name) &&
+          upper(f.path) !== upper(ancestor + "DosBox/" + name),
+      ).length;
+    r.configurationElsewhere = {
+      startup: elsewhere("autoexec.conf"),
+      settings: elsewhere("Settings.conf"),
+    };
+    if (Object.values(r.configuration).includes("ambiguous")) {
+      fail("ambiguous-packaged-configuration");
       continue;
     }
     let stage = "dosboxConfig";
     try {
-      const c = await packagedText(config.file, signal);
-      r.encodings.startup = c.encoding;
-      r.checks.dosboxConfig = startupCommands(c.text);
-      if (!r.checks.dosboxConfig) {
-        fail("unsupported-packaged-startup");
-        continue;
+      if (config) {
+        const c = await packagedText(config.file, signal);
+        r.encodings.startup = c.encoding;
+        r.checks.dosboxConfig = startupCommands(c.text);
+        if (!r.checks.dosboxConfig) {
+          fail("unsupported-packaged-startup");
+          continue;
+        }
       }
       stage = "settings";
-      const setting = await packagedText(settings.file, signal);
-      r.encodings.settings = setting.encoding;
-      const cd = setting.text
-        .split(/[\x01\r\n]/)
-        .map((s) => s.trim())
-        .filter((s) => /^CD\s*=/i.test(s));
-      r.checks.settings = cd.length === 1 && /^CD\s*=\s*1$/i.test(cd[0]);
-      if (!r.checks.settings) {
-        fail("cd-declaration-not-unambiguous-enabled");
-        continue;
+      if (settings) {
+        const setting = await packagedText(settings.file, signal);
+        r.encodings.settings = setting.encoding;
+        const cd = setting.text
+          .split(/[\x01\r\n]/)
+          .map((s) => s.trim())
+          .filter((s) => /^CD\s*=/i.test(s));
+        r.checks.settings = cd.length === 1 && /^CD\s*=\s*1$/i.test(cd[0]);
+        if (!r.checks.settings) {
+          fail("cd-declaration-not-unambiguous-enabled");
+          continue;
+        }
       }
       stage = "batch";
       const b = await packagedText(one(root + "/GAME.BAT")!.file, signal);
@@ -175,13 +201,19 @@ export async function inspectDookyFolder(
         continue;
       }
       r.detected = true;
-      r.reason = "matched";
+      r.rule = config && settings ? "packaged-settings" : "structure-batch-iso";
+      r.reason =
+        r.rule === "packaged-settings"
+          ? "matched"
+          : "matched-without-complete-settings";
       matches.push({
         plan: {
           root,
           evidence: [
-            "packaged-startup:CD ED4 / LOADER.COM / GAME.BAT",
-            "packaged-CD=1",
+            config
+              ? "packaged-startup:CD ED4 / LOADER.COM / GAME.BAT"
+              : "same-package:ED4 + DosBox/CD/ED4.iso",
+            settings ? "packaged-CD=1" : "required-programs:present-and-unique",
             "batch:LOGO / SOUNDRV / DRIVER ED4",
             "ISO9660:ED4/EFFECT/RAW",
           ],
@@ -211,7 +243,7 @@ export function dookyAdvice(r: DookyDecision) {
   if (r.detected) return "";
   if (r.reason === "iso-outside-selection-or-missing")
     return "선택 범위에 DosBox/CD/ED4.iso가 없습니다. CD 음악이 있는 설치본이면 DosBox와 ED4를 함께 포함하는 상위 폴더를 선택하세요. 일반 게임은 현재 파일로 실행할 수 있습니다.";
-  return `CD 실행 환경을 자동 확인하지 못했습니다 (${r.reason}). ${r.missing.length ? "누락/중복: " + r.missing.join(", ") + ". " : ""}DosBox/autoexec.conf, Settings.conf와 ED4.iso를 포함한 상위 폴더인지 확인하세요. 일반 실행 설정은 유지했습니다.`;
+  return `CD 실행 환경을 자동 확인하지 못했습니다 (${r.reason}). ${r.missing.length ? "누락/중복: " + r.missing.join(", ") + ". " : ""}ED4 게임 폴더와 DosBox/CD/ED4.iso를 함께 선택했는지 확인하세요. 설정 파일이 있으면 해당 내용도 일치해야 합니다. 일반 실행 설정은 유지했습니다.`;
 }
 /** Bounded metadata only. A launch request is not proof of menu/audio success. */
 export function autoBootReport(
@@ -224,8 +256,7 @@ export function autoBootReport(
     distribution: detected ? "dooky-configured-cd" : "unclassified-or-existing",
     evidence: detected
       ? [
-          "matching-packaged-startup",
-          "CD=1",
+          "confirmed-registration-preset (see decision for actual evidence)",
           "original-batch-and-programs",
           "ISO9660-music-tree",
         ]

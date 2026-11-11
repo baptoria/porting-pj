@@ -1,3 +1,5 @@
+import { installProfileManagement } from './profile-management-ui';
+import { deleteUnusedMusic } from './profile-management';
 import {dookyDecisionReport,observeDookyLaunch} from './dooky-diagnostics';
 import {storageKey,APP_STORAGE} from './app-storage';
 import {autoBootReport} from './dooky-auto';
@@ -27,7 +29,6 @@ import {
   getSave,
   putSave,
   deleteSave,
-  deleteProfile,
   deleteArchive,
   saveLibrary,
   storageError,
@@ -53,7 +54,6 @@ import {
   musicDirectory,
   musicMounts,
   musicReferences,
-  removeMusic,
   type MusicPack,
 } from "./music";
 import { RawPreview, rawInfo } from "./raw-audio";
@@ -238,7 +238,8 @@ on("#music-delete", async () => {
   )
     return;
   rawPreview.stop();
-  await removeMusic(packId);
+  const pending = await deleteUnusedMusic(packId);
+  if(pending.length)status("음악 정리가 남았습니다. 저장 공간 관리에서 다시 시도하세요.",true);
   await refreshMusic();
 });
 on("#raw-preview", async () => {
@@ -506,7 +507,7 @@ async function refresh() {
     ? profiles
         .map(
           (p) =>
-            `<button class="profile-item ${p.id === selected ? "selected" : ""}" data-profile="${p.id}"><span class="profile-icon">${p.kind === "vanilla" ? "Ⅳ" : "◇"}</span><span>${esc(p.name)}<small>${kindName[p.kind]} · ${p.patchIds.length}개 수정 ZIP</small></span><span class="profile-dot"></span></button>`,
+            `<div class="profile-row"><button class="profile-item ${p.id === selected ? "selected" : ""}" data-profile="${p.id}"><span class="profile-icon">${p.kind === "vanilla" ? "Ⅳ" : "◇"}</span><span>${esc(p.name)}<small>${kindName[p.kind]} · ${p.patchIds.length}개 수정 ZIP</small></span><span class="profile-dot"></span></button><button class="profile-manage-button" data-manage-profile="${p.id}" aria-label="${esc(p.name)} 관리">⋯</button></div>`,
         )
         .join("")
     : '<div class="empty-library">아직 등록한 프로필이 없습니다.<br>첫 번째 모험을 추가해 보세요.</div>';
@@ -1245,20 +1246,8 @@ $<HTMLInputElement>("#patch-file").onchange = () =>
     await refresh();
     status("수정 ZIP을 추가했습니다.");
   });
-on("#remove-profile", async () => {
-  idle();
-  const p = current();
-  if (
-    !confirm(
-      `«${p.name}» 프로필을 삭제할까요? 게임 데이터와 저장 변경분은 저장 공간 관리에 남습니다.`,
-    )
-  )
-    return;
-  await deleteProfile(p.id);
-  $<HTMLDialogElement>("#settings-dialog").close();
-  await refresh();
-  status("프로필을 삭제했습니다. 게임 데이터와 저장 변경분은 유지됩니다.");
-});
+const profileManagement=installProfileManagement({run:task,idle,refresh,notify:status,download});
+on("#remove-profile",async()=>{idle();$<HTMLDialogElement>("#settings-dialog").close();await profileManagement.openDelete(current().id);});
 function download(data: Uint8Array, name: string) {
   const url = URL.createObjectURL(new Blob([new Uint8Array(data)]));
   const a = document.createElement("a");
@@ -1357,6 +1346,7 @@ $<HTMLInputElement>("#recover-file").onchange = () =>
   });
 async function showStorage() {
   await refresh();
+  await profileManagement.renderRetired();
   const estimate = await navigator.storage?.estimate();
   $("#storage-estimate").textContent = estimate
     ? `브라우저 사용량 ${size(estimate.usage ?? 0)} / 예상 한도 ${size(estimate.quota ?? 0)}`
@@ -1429,7 +1419,7 @@ $("#storage-dialog").addEventListener("click", (e) => {
       if (save)
         download(
           exportBackup(
-            profiles.find((p) => p.id === save.profileId) ?? {
+            profiles.find((p) => p.id === save.profileId) ?? save.profile ?? {
               id: save.profileId,
               name: "삭제된 프로필",
             },

@@ -44,6 +44,7 @@ export async function musicDirectory(id: string, create = false) {
   ).getDirectoryHandle(id, { create });
 }
 export async function removeMusic(id: string) {
+  if (!/^[a-zA-Z0-9-]{1,80}$/.test(id)) throw Error("음악 식별자 오류");
   try {
     const root = await navigator.storage.getDirectory();
     await (

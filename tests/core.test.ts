@@ -1,3 +1,4 @@
+import { previewRemoval, removeProfileData } from '../src/profile-management';
 import { describe, it, expect, beforeEach } from "vitest";
 import { zipSync, strToU8, strFromU8, unzipSync } from "fflate";
 import "fake-indexeddb/auto";
@@ -103,7 +104,7 @@ describe("ZIP validation", () => {
 describe("save storage and backup", () => {
   beforeEach(async () => {
     const db = await database();
-    for (const store of ["archives", "profiles", "saves"] as const)
+    for (const store of ["archives", "profiles", "saves", "catalog", "retiredProfiles", "cleanup"] as const)
       await db.clear(store);
   });
   it("isolates profiles and preserves originals", async () => {
@@ -129,8 +130,8 @@ describe("save storage and backup", () => {
       files: { "SAVE.DAT": text("one") },
       updatedAt: 1,
     });
-    await deleteArchive(a.id);
-    await deleteProfile(p.id);
+    await expect(deleteArchive(a.id)).rejects.toThrow();
+    await removeProfileData(await previewRemoval(p.id,"unused"));
     expect(await getSave(p.id)).toBeDefined();
     await deleteSave(p.id);
     expect(await getSave(p.id)).toBeUndefined();
@@ -138,7 +139,7 @@ describe("save storage and backup", () => {
   it("protects shared source data", async () => {
     await putProfile(p, [a]);
     await putProfile({ ...p, id: "p2" });
-    await expect(deleteArchive(a.id)).rejects.toThrow("2개");
+    await expect(deleteArchive(a.id)).rejects.toThrow("프로필");
   });
   it("round trips backups and rejects cross-profile import", () => {
     const original = {

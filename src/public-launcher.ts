@@ -49,7 +49,7 @@ export function installPublicLauncher(){
  choose.onclick=()=>{games.open=!games.open;if(games.open)games.scrollIntoView({block:'nearest'});};
  games.addEventListener('toggle',()=>choose.setAttribute('aria-expanded',String(games.open)));
  q('#profiles').addEventListener('click',event=>{
-  if((event.target as HTMLElement).closest('button')){games.open=false;choose.focus();}
+  if((event.target as HTMLElement).closest('[data-profile]')){games.open=false;choose.focus();}
  });
  const homeState=()=>{
   const registered=document.body.classList.contains('has-profile');

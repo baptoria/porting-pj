@@ -262,7 +262,7 @@ it("migration from v2 adds stores without rewriting any old stores or legacy sav
   });
   old.close();
   const db = await database();
-  expect(db.version).toBe(3);
+  expect(db.version).toBe(4);
   expect(await db.get("saves", p.id)).toEqual(legacy);
   expect(await db.get("profiles", p.id)).toEqual(p);
   expect(await db.count("recovery")).toBe(0);

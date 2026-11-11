@@ -326,17 +326,16 @@ test("same-origin builds isolate catalogs, RAW, saves, preferences, locks, updat
   await expect(dev.locator("#status")).toContainText("음악");
   await dev.locator("#music-pack").selectOption(pack);
   await dev.locator("#music-delete").click();
-  await expect
-    .poll(async () => Object.keys((await state(dev, true)).raw).length)
-    .toBe(0);
-  await dev.locator("#storage-open").click();
-  await dev.locator("[data-delete-save]").click();
-  await expect(dev.locator("[data-delete-save]")).toHaveCount(0);
-  await dev.locator("[data-close=storage-dialog]").click();
+  await expect(dev.locator("#status")).toContainText("참조"); // archive.musicPackId remains protected
   await dev.locator("#game-settings").click();
   await dev.locator("#remove-profile").click();
+  await dev.locator("#delete-scope").selectOption("all");
+  await expect(dev.locator("#delete-confirm")).toBeDisabled();
+  await dev.locator("#delete-phrase").fill("삭제");
+  await dev.locator("#delete-confirm").click();
+  await expect.poll(async()=>Object.keys((await state(dev,true)).raw).length).toBe(0);
   await dev.locator("#storage-open").click();
-  await dev.locator("[data-delete-archive]").click();
+  await expect(dev.locator("[data-delete-save]")).toHaveCount(0);
   await expect(dev.locator("[data-delete-archive]")).toHaveCount(0);
   await dev.locator("[data-close=storage-dialog]").click();
   await expect(dev.locator("#profiles button")).toHaveCount(0);

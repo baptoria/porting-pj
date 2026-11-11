@@ -2,7 +2,7 @@
 import { test, expect } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { menu, stop, diagnostic } from "../phase9-8i/helpers";
-test("actual folder automatically starts original game with native directory CD", async ({
+for (const omitConfig of [false,true]) test(`actual folder ${omitConfig ? "without configs" : "with configs"} automatically starts original game with native directory CD`, async ({
   page,
   context,
 }, info) => {
@@ -11,6 +11,13 @@ test("actual folder automatically starts original game with native directory CD"
   page.on("dialog", (d) => void d.accept());
   await page.goto("/porting-pj/ed4-dev/");
   await expect(page.locator("#offline")).toHaveText("오프라인 준비 완료");
+  if(omitConfig)await page.locator('#simple-folder').evaluate(input=>{
+    input.addEventListener('change',()=>{
+      const picker=input as HTMLInputElement,dt=new DataTransfer();
+      for(const f of Array.from(picker.files??[]))if(!/\/DosBox\/(autoexec|Settings)\.conf$/i.test(f.webkitRelativePath))dt.items.add(f);
+      picker.files=dt.files;
+    },{capture:true});
+  });
   await page.locator("#simple-import").click();
   await page
     .locator("#simple-folder")
@@ -36,6 +43,7 @@ test("actual folder automatically starts original game with native directory CD"
     await page.locator("#ingame-advanced").click();
     const data = await diagnostic(page);
     expect(data.automaticBoot.decision.registration.decision.detected).toBe(true);
+    expect(data.automaticBoot.decision.registration.decision.rule).toBe(omitConfig?'structure-batch-iso':'packaged-settings');
     expect(data.automaticBoot.decision.registration.decision.application.applied).toBe(true);
     expect(data.automaticBoot.decision.beforeLaunch.checks.musicPath).toBe(true);
     expect(data.engine.music.reads).toBeGreaterThan(0);

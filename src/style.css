@@ -1078,3 +1078,9 @@ body:not(.running) .player-toolbar { order:-1; border-bottom:1px solid var(--lin
 @media (orientation:landscape) and (max-height:600px) {
  body.running #play-area:not(.immersive) .screen-frame { margin:0; }
 }
+
+/* Profile actions are siblings: tapping manage never selects a profile. */
+.profile-row{display:flex;align-items:center;gap:4px;min-width:0}.profile-row .profile-item{flex:1;min-width:0}.profile-manage-button{min-width:44px;min-height:44px;flex:none}#profile-manage,#profile-delete{max-height:90dvh;overflow:auto;width:min(520px,92vw)}#profile-manage button,#profile-delete button,#retired-profiles button{min-height:44px;min-width:44px}#delete-preview{white-space:pre-line}#delete-strong[hidden]{display:none}
+.fantasy-launcher #profiles .profile-row{flex:0 0 min(310px,85vw)}
+.fantasy-launcher #profiles .profile-row .profile-item{flex:1 1 0;width:auto;min-width:0}
+.fantasy-launcher #profiles .profile-manage-button{min-height:44px;min-width:44px}

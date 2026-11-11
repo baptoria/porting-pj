@@ -52,8 +52,6 @@ it("selects configured outer installation using independent evidence, no game ha
   expect(JSON.stringify(plan)).not.toContain("private");
 });
 it.each([
-  "DosBox/autoexec.conf",
-  "DosBox/Settings.conf",
   "DosBox/CD/ED4.iso",
   "ED4/LOADER.COM",
   "ED4/DRIVER.EXE",
@@ -135,10 +133,6 @@ it("HF1 records exact failed check without swallowing config errors", async () =
   const c = new AbortController();
   for (const [changes, reason] of [
     [
-      { "DosBox/Settings.conf": null },
-      "missing-or-ambiguous-packaged-settings",
-    ],
-    [
       { "DosBox/autoexec.conf": "[NEW]\nCD ED4\nOTHER.COM\nGAME.BAT" },
       "unsupported-packaged-startup",
     ],
@@ -211,4 +205,16 @@ it("HF1 refuses bare-CR BAT auto configuration: pinned DOS shell does not treat 
   );
   expect(r.report.reason).toBe("unsupported-batch-flow-or-encoding");
   expect(r.plan).toBeUndefined();
+});
+
+it.each([['DosBox/Settings.conf'],['DosBox/autoexec.conf'],['DosBox/Settings.conf','DosBox/autoexec.conf']])('HF2 confirms structural evidence when configuration absent: %s',async(...paths)=>{
+ const scan=fixture(Object.fromEntries(paths.map(p=>[p,null]))),r=await inspectDookyFolder(scan,new AbortController().signal);
+ expect(r.plan?.root).toBe('ED4');expect(r.report.rule).toBe('structure-batch-iso');expect(r.report.reason).toBe('matched-without-complete-settings');expect(r.report.checks.batch).toBe(true);expect(r.report.checks.isoMusic).toBe(true);
+});
+it('HF2 rejects mixed roots and duplicate config even with otherwise valid structural evidence',async()=>{
+ const scan=fixture({'DosBox/autoexec.conf':null,'DosBox/Settings.conf':null});
+ scan.files=scan.files.map(f=>f.path.startsWith('DosBox/')?{...f,path:'OTHER/'+f.path}:f);
+ expect((await inspectDookyFolder(scan,new AbortController().signal)).plan).toBeUndefined();
+ const duplicate=fixture();duplicate.files.push({...duplicate.files.find(f=>f.path==='DosBox/Settings.conf')!,path:'dosbox/settings.conf'});
+ expect((await inspectDookyFolder(duplicate,new AbortController().signal)).report.reason).toBe('ambiguous-packaged-configuration');
 });

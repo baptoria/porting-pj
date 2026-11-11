@@ -229,7 +229,9 @@ export async function prepareFolderMusic(
       messages.push(reason(error));
     }
   }
-  let startupPrelude: "LOADER.COM" | undefined;
+  // Confirmed structural plan has already validated BAT, required programs,
+  // ISO tree and same-package relationship. No config file is invented.
+  let startupPrelude: "LOADER.COM" | undefined = automatic && kind !== 'patch' ? 'LOADER.COM' : undefined;
   if (startup && kind !== "patch") {
     try {
       startupPrelude = await dookyPrelude(startup.file, signal, !!decision);
@@ -289,7 +291,7 @@ export async function prepareFolderMusic(
       game.blocked = false;
       draft.analysis.automatic = "GAME.BAT";
       draft.analysis.reason =
-        "동봉된 실행 설정에서 GAME.BAT를 확인했습니다. 실제 게임 호환성은 실행 결과로 확인합니다.";
+        "선택한 설치본에서 GAME.BAT 실행 흐름을 확인했습니다. 실제 게임 호환성은 실행 결과로 확인합니다.";
     }
   }
   // Reuse the existing conservative BAT parser for attached DOS switches / > NUL.
@@ -320,7 +322,7 @@ export async function prepareFolderMusic(
     draft.music={...draft.music,prefix:'ED4'};
     draft.registrationPrelude='mount d . -t cdrom\nLOADER.COM';
     draft.registrationPreset='ed4-dooky-directory-cd-experimental-v1';
-    messages.push('동봉 실행 설정과 음악 경로를 확인하여 실행 환경을 자동 연결했습니다.');
+    messages.push('설치본 실행 흐름과 음악 경로를 확인하여 실행 환경을 자동 연결했습니다.');
   } else if(automatic) messages.push('음악 연결이 완료되지 않아 CD 실행 환경을 적용하지 않았습니다. 게임 본체와 기존 자료는 유지됩니다.');
   if(decision)draft.registrationDecision={...decision,application:{applied:!!draft.registrationPreset,reason:draft.registrationPreset?'applied':!automatic?'not-detected':!draft.music?'music-unavailable':!musicPath?'music-path-unavailable':draft.registrationPrelude!=='LOADER.COM'?'startup-not-applied':'not-applied',musicPath,prelude:draft.registrationPrelude==='mount d . -t cdrom\nLOADER.COM',entry:draft.analysis.automatic==='GAME.BAT'}};
   return Object.assign(draft, {

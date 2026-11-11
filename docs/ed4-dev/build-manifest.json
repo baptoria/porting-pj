@@ -2,11 +2,11 @@
   "format": "ed4-shell-release",
   "version": 1,
   "build": {
-    "id": "9-8q-hf1-dev-20261111015415596-df3e5813",
-    "commit": "72dda9a5e4a0",
+    "id": "9-8q-hf2-dev-20261111024136587-3f9cb680",
+    "commit": "0885ee268d99",
     "dirty": true,
-    "builtAt": "2026-11-11T01:54:15.596Z",
-    "revision": "phase9-8q-hf1-auto-boot-1",
+    "builtAt": "2026-11-11T02:41:36.587Z",
+    "revision": "phase9-8q-hf2-auto-boot-1",
     "audience": "developer"
   },
   "files": [
@@ -16,19 +16,19 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "path": "assets/launcher-update-CUz6WKLp.js",
+      "path": "assets/launcher-update-CZkT2msY.js",
       "bytes": 7057,
-      "sha256": "3ff429c59eb8cba6c7a51a9789ae0611add36eb5ddaab95a7e0ad6123b821609"
+      "sha256": "61bad959049c0f598a3c7f9e58b853fd8b82aa888ab96e51d10cde454d0422a7"
     },
     {
-      "path": "assets/main-CvzExQ7R.js",
-      "bytes": 265727,
-      "sha256": "8ef568f7e72a1af52075809bfe2fe22b6433311c0e194fada48add62b23ea670"
+      "path": "assets/main-DKkFxDMo.css",
+      "bytes": 31844,
+      "sha256": "0e4e1f931e9eb381fdc179aceb94da5c1e9ea8c2dfc5fb062f48594e7f3a51f4"
     },
     {
-      "path": "assets/main-kii59z9s.css",
-      "bytes": 31172,
-      "sha256": "d0e75a62933dbf1ea2ba4496c7af709a777511bc002cd027369ab1f9690fa35d"
+      "path": "assets/main-LHF6bRSW.js",
+      "bytes": 277794,
+      "sha256": "87c06ee6fda3514d042c310fab8d384af9e8b6b6c41a6b3f35036f9647ecac02"
     },
     {
       "path": "assets/runtime-worker-qN4wlFPP.js",
@@ -41,9 +41,9 @@
       "sha256": "fa6ab23a8064de358260bfd12670bb3e489763fec6b700f96423701dfaa533d6"
     },
     {
-      "path": "assets/update-DFSqS7rH.js",
+      "path": "assets/update-s-rpl1Qi.js",
       "bytes": 103,
-      "sha256": "d1ffef7c84afbfdce766b4cc69273ec99db4f384d39c66c6b532ae743c4a8c06"
+      "sha256": "9ba5dee0de9a08a0f2ad2815cc16b76362fb0651699a75f5bb26f546ba490d42"
     },
     {
       "path": "assets/zip-worker-BR8_C7kl.js",
@@ -223,7 +223,7 @@
     {
       "path": "index.html",
       "bytes": 867,
-      "sha256": "23b596d61331e23ecc578cd2cba34aaa913634f9000ad969edc52aaaa3012061"
+      "sha256": "d9bafadaa155b1cec207fd89cee50f443b8bb57f57d7b8c5040b3f364226d9b4"
     },
     {
       "path": "licenses/NOTICE.html",
@@ -313,7 +313,7 @@
     {
       "path": "update.html",
       "bytes": 651,
-      "sha256": "050f6f5fe728c27e6833f599b818ab226699f9fcc056dac7407bdb1f83d56a8b"
+      "sha256": "5abe07677041b3d1f7158969eaf03bc5fce0754f058deca392f33fc885093b88"
     },
     {
       "path": "vendor/emulators.js",
@@ -726,5 +726,5 @@
       "sha256": "b87895c18e93fb849bf984778c5f2081e28a804209e4ee77baa7c7a372d0cfc7"
     }
   ],
-  "swSha256": "d5254853e9f4deb6727632fb6d7b72a8ba093c271d5ccf9fafd43e82a3d8a645"
+  "swSha256": "fc496b8f8f7ad9e279b88b66bc130dc1e4f31926f9f78cd0bb82ed9def6c15ef"
 }

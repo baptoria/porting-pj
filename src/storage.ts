@@ -4,6 +4,8 @@ import type { Archive, Profile, Save } from "./model";
 import { migrateProfile, identity, checkIdentity } from "./integrity";
 import { normalizeSave } from "./save-state";
 import { equalSave, type RecoveryPoint, type RecoveryPolicy } from "./temp-save";
+import { archiveReferences } from './data-references';
+export interface RetiredProfile { id: string; profile: Profile; deletedAt: number; dataKept: boolean }
 interface LauncherDB extends DBSchema {
   archives: { key: string; value: Archive };
   profiles: { key: string; value: Profile };
@@ -11,14 +13,20 @@ interface LauncherDB extends DBSchema {
   recovery: { key: string; value: RecoveryPoint; indexes: { profileId: string } };
   recoveryPolicies: { key: string; value: RecoveryPolicy };
   catalog: { key: string; value: Archive & { available: boolean } };
+  retiredProfiles: { key: string; value: RetiredProfile };
+  cleanup: { key: string; value: { id: string; createdAt: number; lastError?: string } };
 }
 export const database = () => {
   let late = false, timer: ReturnType<typeof setTimeout> | undefined;
   let rejectBlocked: (e: Error) => void;
   const blocked = new Promise<never>((_, reject) => { rejectBlocked = reject; });
-  const opening = openDB<LauncherDB>(APP_STORAGE.database, 3, {
+  const opening = openDB<LauncherDB>(APP_STORAGE.database, 4, {
     blocked() { timer ??= setTimeout(() => { late = true; rejectBlocked(Error("저장소 업데이트가 다른 실행기 탭을 기다리고 있습니다. 다른 탭의 게임을 안전하게 종료하고 탭을 닫은 뒤 다시 시도하세요. 데이터 삭제는 필요 없습니다.")); }, 8000); },
     upgrade(db, oldVersion, _newVersion, tx) {
+      if (oldVersion < 4) {
+        db.createObjectStore('retiredProfiles', { keyPath: 'id' });
+        db.createObjectStore('cleanup', { keyPath: 'id' });
+      }
       if (oldVersion < 1) {
         db.createObjectStore("archives", { keyPath: "id" });
         db.createObjectStore("profiles", { keyPath: "id" });
@@ -209,20 +217,17 @@ export async function deleteSave(profileId: string) {
   await (await database()).delete("saves", profileId);
 }
 export async function deleteProfile(profileId: string) {
-  // Preserve saves for explicit deletion or export from the save library.
-  await (await database()).delete("profiles", profileId);
+  const {previewRemoval,removeProfileData}=await import('./profile-management');
+  await removeProfileData(await previewRemoval(profileId,'profile'));
 }
 export async function deleteArchive(archiveId: string) {
   const db = await database();
-  const profiles = await db.getAll("profiles");
-  const dependents = profiles.filter(
-    (p) => p.baseId === archiveId || p.patchIds.includes(archiveId),
-  );
-  if (dependents.length > 1)
-    throw new Error(
-      `이 ZIP을 ${dependents.length}개 프로필이 사용합니다. 관련 프로필을 먼저 삭제하세요.`,
-    );
-  const tx = db.transaction(["archives", "catalog"], "readwrite");
+  const tx = db.transaction(["archives", "catalog", "profiles", "retiredProfiles"], "readwrite");
+  const profiles = [...await tx.objectStore('profiles').getAll(), ...(await tx.objectStore('retiredProfiles').getAll()).filter(r=>r.dataKept).map(r=>r.profile)];
+  if (profiles.some(p=>archiveReferences(p).includes(archiveId))) {
+    await tx.done;
+    throw Error('사용 중이거나 복원용으로 보존한 프로필의 게임 데이터입니다. 프로필 삭제 범위에서 먼저 정리하세요.');
+  }
   const meta = await tx.objectStore("catalog").get(archiveId);
   if (meta) await tx.objectStore("catalog").put({ ...meta, available: false });
   await tx.objectStore("archives").delete(archiveId);
