@@ -250,14 +250,8 @@ test("same-origin builds isolate catalogs, RAW, saves, preferences, locks, updat
     .evaluate((e) => ((e as HTMLDetailsElement).open = true));
   const devBeforeUpdate = await state(dev, true);
   await request.post("/__release?app=ed4-dev&version=current");
-  await dev.locator("#update-check").click();
-  await expect(dev.locator("#update-status")).toContainText(
-    "검증된 새 실행기",
-    { timeout: 30000 },
-  );
-  await expect(dev.locator("#update-apply")).toBeEnabled();
-  await dev.locator("#update-apply").click();
-  await expect(dev.locator("#launcher-build")).not.toContainText("-prior");
+  await dev.evaluate(()=>window.dispatchEvent(new Event('online')));
+  await expect(dev.locator("#launcher-build")).not.toContainText("-prior",{timeout:60000});
   await expect(pub.locator("#run-state")).toHaveText("실행 중");
   expect(await cachesFor(pub)).toEqual(publicCache);
   await key(pub, "ArrowUp", "KEY RECEIVED");
@@ -275,13 +269,8 @@ test("same-origin builds isolate catalogs, RAW, saves, preferences, locks, updat
     .locator("#launcher-version")
     .evaluate((e) => ((e as HTMLDetailsElement).open = true));
   await request.post("/__release?app=ed4&version=current");
-  await pub.locator("#update-check").click();
-  await expect(pub.locator("#update-status")).toContainText(
-    "검증된 새 실행기",
-    { timeout: 30000 },
-  );
-  await pub.locator("#update-apply").click();
-  await expect(pub.locator("#launcher-build")).not.toContainText("-prior");
+  await pub.evaluate(()=>window.dispatchEvent(new Event('online')));
+  await expect(pub.locator("#launcher-build")).not.toContainText("-prior",{timeout:60000});
   expect(await cachesFor(dev, true)).toEqual(developerCache);
   await expect(dev.locator("#run-state")).toHaveText("실행 중");
   await key(dev, "ArrowUp", "KEY RECEIVED");

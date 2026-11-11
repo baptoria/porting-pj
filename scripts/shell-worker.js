@@ -21,20 +21,29 @@ self.addEventListener('install',event=>event.waitUntil((async()=>{
   throw error;
  }
 })()));
-async function info(){const r=await (await caches.open(CACHE)).match(new URL('build-manifest.json',self.registration.scope));return {build:BUILD,verified:verified||!!r,cache:CACHE};}
+async function info(){const r=await (await caches.open(CACHE)).match(new URL('build-manifest.json',self.registration.scope));const manifest=r?await r.json():null;return {build:BUILD,verified:verified||manifest?.build?.id===BUILD.id,swSha256:manifest?.swSha256,cache:CACHE,protocol:2,transition};}
+let applying=false,transition='idle';
 self.addEventListener('message',event=>{
  const port=event.ports[0];if(!port)return;
  event.waitUntil((async()=>{
   if(event.data?.type==='ED4_VERSION'){port.postMessage(await info());return;}
   if(event.data?.type!=='ED4_APPLY')return;
+  const requestId=event.data.requestId;
+  const refuse=error=>port.postMessage({error,id:BUILD.id,requestId});
+  if(applying){refuse('업데이트 전환 확인 중입니다.');return;}
   const state=await info();
-  if(!state.verified||event.data.id!==BUILD.id){port.postMessage({error:'배포 파일 검증이 완료되지 않았습니다.'});return;}
+  if(!state.verified||event.data.id!==BUILD.id){refuse('배포 파일 검증이 완료되지 않았습니다.');return;}
   const windows=(await self.clients.matchAll({type:'window',includeUncontrolled:true})).filter(c=>c.url.startsWith(self.registration.scope));
-  if(windows.length!==1||windows[0].id!==event.source?.id){port.postMessage({error:'다른 실행기 창을 게임 종료 후 닫고 다시 적용하세요. 데이터는 삭제하지 않습니다.'});return;}
+  if(windows.length!==1||windows[0].id!==event.source?.id){refuse('다른 실행기 창이 있어 적용을 보류합니다. 데이터는 삭제하지 않습니다.');return;}
+  applying=true;transition='locking-client';
   const client=windows[0],channel=new MessageChannel();
-  const idle=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(false),3000);channel.port1.onmessage=e=>{clearTimeout(timer);channel.port1.close();resolve(e.data?.idle===true);};client.postMessage({type:'ED4_UPDATE_LOCK',id:BUILD.id},[channel.port2]);});
-  if(!idle){port.postMessage({error:'게임 실행 중이거나 업데이트 동의가 만료되었습니다. 종료 후 다시 적용하세요.'});return;}
-  port.postMessage({accepted:true,id:BUILD.id});await self.skipWaiting();
+  // Missing token is accepted only for the existing HF1 manual-upgrade client.
+  const idle=await new Promise(resolve=>{const timer=setTimeout(()=>{channel.port1.close();resolve(false);},3000);channel.port1.onmessage=e=>{clearTimeout(timer);channel.port1.close();resolve(e.data?.idle===true&&(requestId===undefined||e.data.requestId===requestId));};client.postMessage({type:'ED4_UPDATE_LOCK',id:BUILD.id,requestId},[channel.port2]);});
+  const remaining=(await self.clients.matchAll({type:'window',includeUncontrolled:true})).filter(c=>c.url.startsWith(self.registration.scope));
+  if(!idle||remaining.length!==1||remaining[0].id!==client.id){applying=false;refuse('다른 창 또는 진행 중인 작업 때문에 적용을 보류합니다.');return;}
+  transition='requesting-activation';
+  await self.skipWaiting();transition='activation-requested';
+  port.postMessage({accepted:true,id:BUILD.id,requestId});
  })());
 });
 self.addEventListener('activate',event=>event.waitUntil((async()=>{

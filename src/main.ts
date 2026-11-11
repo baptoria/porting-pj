@@ -463,6 +463,7 @@ function idle() {
   if (engine) throw new Error("저장 후 종료한 다음 변경하세요.");
 }
 async function task(action: () => Promise<void>) {
+  if (launcherUpdate.locked) {status('실행기 업데이트 적용 중입니다. 잠시 후 다시 시도하세요.');return;}
   if (busy) return;
   if (!writable) {
     status(
@@ -1263,6 +1264,7 @@ function download(data: Uint8Array, name: string) {
 }
 
 async function recoveryAction(action:()=>Promise<void>) {
+  if(launcherUpdate.locked)throw Error('실행기 업데이트 적용 중입니다.');
   if(busy || !writable)throw Error('다른 작업 또는 저장 잠금을 확인하세요.');
   busy=true;document.body.classList.add('busy');updateButtons();
   try { await action(); } finally {busy=false;document.body.classList.remove('busy');updateButtons();}
@@ -1535,10 +1537,8 @@ async function init() {
   );
   if ("serviceWorker" in navigator && import.meta.env.PROD) {
     try {
-      await navigator.serviceWorker.register(
-        `${import.meta.env.BASE_URL}sw.js`,
-        {updateViaCache:'none'},
-      );
+      await launcherUpdate.check();
+      if(!await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL))throw Error('검증된 서비스 워커 등록을 확인하지 못했습니다.');
       await navigator.serviceWorker.ready;
       $("#offline").textContent = "오프라인 준비 완료";
       $("#offline").classList.add("ready");
@@ -1685,7 +1685,7 @@ function renderSpeed(){
 }
 on('#speed-toggle',async()=>{if(!DEVELOPER_TOOLS&&(!engine||!engine.speedState().supported||engine.diagnostics().artifact.id!=='phase9-8k'))requireDeveloperTools();if(!engine)return;await engine.setSpeed(engine.speedState().rate===2?1:2);renderSpeed();});
 $('#advanced-content').insertAdjacentHTML('afterbegin','<section id="launcher-update"></section>');
-const launcherUpdate=installLauncherUpdate($('#launcher-update'),()=>!!engine||!!running||busy);
+const launcherUpdate=installLauncherUpdate($('#launcher-update'),()=>!!engine||!!running||busy||!!checkpointPromise||!!document.querySelector('dialog[open]'));
 const scenePanel=installScenePanel($('.player-toolbar'),()=>engine,download);
 for(const id of ['map-confirm','map-cancel','map-menu']){const field=$<HTMLSelectElement>('#'+id);field.disabled=true;field.title='기존 설정은 보존됩니다. ED4 오버레이는 Enter/ESC 고정입니다.';}
 
