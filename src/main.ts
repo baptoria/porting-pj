@@ -66,6 +66,11 @@ import { bootPlan, BootTrace } from './boot-trace';
 import { runtimeComparison, type ComparisonMode } from './runtime-comparison';
 import { candidatePaths, effectiveFiles, policyPaths, recoveryPoint, restoredSave, saveScope, TempSaveSession, attachTempObservation } from "./temp-save";
 import { chooseConsumedExit, showRecoveryPanel } from "./recovery-ui";
+import { showPcSaveImport } from './pc-save-ui';
+import { applyPcSaveImport } from './pc-save-import';
+import { planPcSaveExport, exportPcSave, pcOriginalPaths } from './pc-save-export';
+import { showPcSaveExport } from './pc-save-export-ui';
+import { equalSave } from './temp-save';
 import type { Files, DosSettings, Save } from './model';
 
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
@@ -117,7 +122,7 @@ $("#app").innerHTML = `
 <div class="player-toolbar"><button id="play" class="primary">▶ 실행</button><button id="pause">일시 정지</button><button id="recovery-run">복구 지점</button><button id="export-live">현재 파일 내보내기</button><button id="stop">저장 후 종료</button><span class="toolbar-spacer"></span><button id="keyboard-toggle" aria-expanded="false">키보드</button><button id="fullscreen">전체 화면 ⛶</button></div>
 <div id="virtual-keyboard" class="virtual-keyboard" hidden></div></div>
 <div id="status" role="status" aria-live="polite">게임 원본 없이도 공개 테스트 프로그램으로 실행 환경을 확인할 수 있습니다.</div>
-<div class="detail-grid"><section class="card"><div class="card-heading"><h3>실행 프로필</h3><button id="edit-profile" class="quiet">설정 ↗</button></div><dl><div><dt>실행 파일</dt><dd id="exe-label">등록 전</dd></div><div><dt>적용 순서</dt><dd id="layers-label">원본 → 수정 파일 → 저장 변경분</dd></div><div><dt>저장 공간</dt><dd id="save-label">프로필마다 독립적으로 보관</dd></div></dl><div class="card-actions"><button id="add-patch">수정 ZIP 추가</button><button id="backup">저장 백업</button><button id="restore">백업 가져오기</button><button id="recovery-open">이어하기 복구</button></div></section>
+<div class="detail-grid"><section class="card"><div class="card-heading"><h3>실행 프로필</h3><button id="edit-profile" class="quiet">설정 ↗</button></div><dl><div><dt>실행 파일</dt><dd id="exe-label">등록 전</dd></div><div><dt>적용 순서</dt><dd id="layers-label">원본 → 수정 파일 → 저장 변경분</dd></div><div><dt>저장 공간</dt><dd id="save-label">프로필마다 독립적으로 보관</dd></div></dl><div class="card-actions"><button id="add-patch">수정 ZIP 추가</button><button id="backup">실행기 저장 백업</button><button id="restore">백업 가져오기</button><button id="pc-save-import">PC 세이브 가져오기</button><button id="pc-save-export">PC 세이브 내보내기</button><button id="recovery-open">이어하기 복구</button></div></section>
 <section class="card"><div class="card-heading"><h3>터치 컨트롤</h3><span class="subtle">가로 화면 권장</span></div><label class="range-row">버튼 크기<input id="control-size" type="range" min="38" max="76" value="50"><output id="size-value">50</output></label><label class="range-row">가장자리 간격<input id="control-inset" type="range" min="0" max="72" value="16"><output id="inset-value">16</output></label><label class="range-row">소리<input id="volume" type="range" min="0" max="100" value="60"><button id="audio" class="quiet">소리 켜기</button></label><p class="hint">확인 Enter · 취소 Esc · 메뉴 Space는 임시 매핑입니다. 실제 게임 입력키는 검증 후 조정합니다.</p></section></div>
 <details class="diagnostics"><summary>실행 기록 / 입력 설정</summary><div class="mapping"><label>확인<select id="map-confirm"></select></label><label>취소<select id="map-cancel"></select></label><label>메뉴<select id="map-menu"></select></label></div><pre id="logs" aria-label="실행 기록">엔진 시작 대기</pre></details>
 <footer><span>ED4 MOBILE / PHASE 2</span><a href="./licenses/NOTICE.html" target="_blank" rel="noopener">오픈소스 및 라이선스 ↗</a></footer></section></main>
@@ -490,6 +495,8 @@ function on(id: string, action: () => Promise<void>) {
   $(id).addEventListener("click", () => void task(async()=>{if(DEVELOPER_ACTIONS.has(id))requireDeveloperTools();await action();}));
 }
 function updateButtons() {
+  $("#pc-save-import").toggleAttribute("disabled", !selected || busy || !!engine || !!running);
+  $("#pc-save-export").toggleAttribute("disabled", !selected || busy || !!engine || !!running);
   $("#play").toggleAttribute("disabled", !!engine || !selected || busy);
   for (const button of ["#pause", "#stop"])
     $(button).toggleAttribute("disabled", !running || busy);
@@ -1278,6 +1285,25 @@ async function openRecovery() {
     apply:point=>recoveryAction(async()=>{idle();await applyRecovery(p,save,restoredSave(p,save,source,point),point.id);await refresh();status('선택 시점의 파일을 복구했습니다. 복구 직전 변경분도 별도로 보존했습니다.');})
   });
 }
+on('#pc-save-import',async()=>{
+  idle();
+  const profile=structuredClone(current()),source=layerFiles(profile,await loadProfile(profile)),save=await getSave(profile.id);
+  showPcSaveImport({profile,source,save},{
+    run:action=>recoveryAction(async()=>{idle();if(current().id!==profile.id)throw Error('선택 프로필이 바뀌었습니다. 가져오기를 다시 열어주세요.');await action();}),
+    download,
+    apply:async(plan,paths)=>{await applyPcSaveImport(plan,paths);await refresh();status('PC 세이브를 가져왔습니다. 이전 상태는 이어하기 복구 지점에 보존했습니다. 다음 실행에서 게임의 불러오기를 확인해주세요.');},
+  });
+});
+on('#pc-save-export',async()=>{
+  idle();
+  const p=structuredClone(current()),input=await loadProfile(p),save=await getSave(p.id);
+  const plan=planPcSaveExport(p,layerFiles(p,input),save,pcOriginalPaths(p,input));
+  showPcSaveExport(p.name,plan,paths=>recoveryAction(async()=>{
+    idle();
+    if(current().id!==p.id||!equalSave(await getSave(p.id),save))throw Error('선택 프로필 또는 저장 상태가 바뀌었습니다. 내보내기를 다시 열어주세요.');
+    download(exportPcSave(plan,paths),'ED4_PC_SAVE.zip');
+  }));
+});
 on('#recovery-open',openRecovery);
 on('#recovery-run',openRecovery);
 on('#export-live',async()=>{
