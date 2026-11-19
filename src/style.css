@@ -1060,12 +1060,6 @@ body.running #game-tools { display:flex; }
 #scene-name { width:auto; min-width:100px; }
 #scene-status { margin:6px 0 0; overflow-wrap:anywhere; }
 #speed-limit { font-size:12px; width:100%; padding:8px; color:#f3d7a4; }
-:is(#pc-save-dialog, #pc-save-export-dialog) { width:min(820px,94vw); max-height:90dvh; overflow:auto; }
-:is(#pc-save-dialog, #pc-save-export-dialog) .pc-save-list { max-height:30dvh; overflow:auto; margin:12px 0; }
-:is(#pc-save-dialog, #pc-save-export-dialog) table { width:100%; font-size:12px; border-collapse:collapse; }
-:is(#pc-save-dialog, #pc-save-export-dialog) td, :is(#pc-save-dialog, #pc-save-export-dialog) th { padding:8px; text-align:left; border-bottom:1px solid #4b5a60; overflow-wrap:anywhere; }
-:is(#pc-save-dialog, #pc-save-export-dialog) input[type=checkbox] { width:22px; height:22px; margin:11px; }
-:is(#pc-save-dialog, #pc-save-export-dialog) button, :is(#pc-save-dialog, #pc-save-export-dialog) select { min-height:44px; }
 #play-ui-dialog { max-height:85dvh; width:min(440px,90vw); overflow:auto; }
 #play-ui-dialog label { display:block; margin:10px 0; }
 #play-ui-dialog input[type=range] { display:block; width:100%; }

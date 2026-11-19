@@ -1,0 +1,51 @@
+/* Save transfer has one scroll area; the selected count and final action remain visible. */
+dialog.save-transfer { width:min(760px,calc(100vw - 24px)); max-width:none; max-height:calc(100dvh - 24px); padding:0; overflow:hidden; box-sizing:border-box; }
+dialog.save-transfer[open] { display:flex; flex-direction:column; }
+.save-transfer [hidden] { display:none !important; }
+.save-transfer header, .save-transfer footer { flex:none; padding:14px 18px; }
+.save-transfer header { border-bottom:1px solid #716044; }
+.save-transfer footer { display:block; margin-top:0; letter-spacing:normal; color:#dde3ec; font-size:14px; border-top:1px solid #716044; background:#18212d; }
+.save-transfer h2 { margin:0; font-size:21px; }
+.save-transfer h3 { margin:0 0 10px; font-size:17px; }
+.save-transfer p { margin:8px 0; overflow-wrap:anywhere; }
+.save-transfer header p { margin-bottom:0; color:#d0c5ad; max-height:2.8em; overflow:auto; }
+.save-transfer-body { padding:16px 18px; min-height:0; overflow:auto; overscroll-behavior:contain; }
+.save-steps { display:flex; gap:12px; list-style:none; margin:12px 0 0; padding:0; color:#adb0b7; font-size:13px; }
+.save-steps [aria-current] { color:#f4d39b; font-weight:700; }
+.save-picker { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.save-picker label { width:100%; }
+.save-picker select { flex:1; min-width:180px; }
+.save-transfer button, .save-transfer select, .save-transfer summary { min-height:44px; box-sizing:border-box; }
+.save-transfer select { width:100%; max-width:100%; }
+.save-transfer button { margin:0; font-size:14px; line-height:1.35; padding:10px 14px; }
+.save-transfer details { border-top:1px solid #48505a; margin-top:8px; }
+.save-transfer summary { padding:12px 0; cursor:pointer; color:#e0c695; }
+.save-transfer summary:focus-visible { outline:2px solid #e0c695; outline-offset:-2px; }
+.save-transfer .save-summary { padding:0; margin:0; list-style:none; line-height:1.9; }
+.save-transfer .save-help { font-size:12px; color:#c0c5cf; }
+.save-transfer .save-change-notice { color:#ffdbb4; font-size:13px; }
+.save-transfer footer p { max-height:3.2em; overflow:auto; font-size:13px; line-height:1.4; margin:0 0 6px; }
+.save-transfer footer p:empty { display:none; }
+.save-transfer-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.save-transfer-actions > span { flex:1; min-width:100px; font-size:13px; }
+.save-transfer .primary { background:#b79a62; border-color:#d5b577; color:#101722; font-weight:700; }
+.save-transfer .primary:disabled { opacity:.45; }
+.save-transfer .save-file { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-top:1px solid #394250; cursor:pointer; }
+.save-transfer .save-file input { flex:0 0 22px; width:22px; height:22px; margin:11px 0; }
+.save-transfer .save-file > span { min-width:0; flex:1; }
+.save-transfer .save-file strong, .save-transfer .save-file span span, .save-transfer .save-file small { display:block; overflow-wrap:anywhere; white-space:normal; }
+.save-transfer .save-file span span { font-size:13px; margin:4px 0; }
+.save-transfer .save-file small { color:#b5bfcc; font-size:12px; line-height:1.6; }
+@media (max-height:450px) and (min-width:600px) {
+  .save-transfer header, .save-transfer footer { padding:10px 16px; }
+  .save-transfer h2 { font-size:18px; }
+  .save-transfer header p { display:inline; font-size:12px; }
+  .save-steps { float:right; margin:4px 0 0; }
+  .save-transfer-body { padding:12px 16px; }
+  .save-transfer .save-summary { display:grid; grid-template-columns:1fr 1fr; gap:2px 16px; font-size:14px; line-height:1.6; }
+}
+@media (max-width:599px) {
+  .save-transfer-actions > span { flex-basis:100%; }
+  .save-transfer-actions button { flex:1; padding:8px; }
+  .save-transfer header, .save-transfer footer, .save-transfer-body { padding:12px; }
+}

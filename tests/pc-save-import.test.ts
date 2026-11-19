@@ -100,3 +100,9 @@ it.skipIf(!process.env.ED4_PC_SAVE_ROOT)('read-only real PC saves round-trip exa
   await (await database()).delete('saves',p.id);
  }
 });
+it('recovery point creation failure prevents save apply and preserves previous recovery',async()=>{
+ await putSave(prior());const plan=planPcSaveImport(p,source,prior(),[{path:'A.DAT',bytes:b('a')}],'merge');
+ const db=await database();await db.put('recovery',{id:'oldpoint',profileId:p.id,sessionId:'old',createdAt:1,kind:'before-restore',candidatePaths:[],save:prior(),note:'keep'});
+ const original=IDBObjectStore.prototype.add;vi.spyOn(IDBObjectStore.prototype,'add').mockImplementation(function(this:IDBObjectStore,...args:Parameters<typeof original>){if(this.name==='recovery')throw new DOMException('recovery full','QuotaExceededError');return original.apply(this,args);});
+ await expect(applyPcSaveImport(plan,['SAVE/A.DAT'])).rejects.toThrow('recovery full');expect(await getSave(p.id)).toEqual(prior());expect((await recoveryPoints(p.id)).map(p=>p.id)).toEqual(['oldpoint']);
+});
